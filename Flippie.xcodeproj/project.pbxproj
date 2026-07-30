@@ -1,0 +1,665 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1A2B3C4D5E6F7G8H9I0J1K2L /* FlippieApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K2M /* FlippieApp.swift */; };
+		1A2B3C4D5E6F7G8H9I0J1K2N /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K2O /* ContentView.swift */; };
+		1A2B3C4D5E6F7G8H9I0J1K2P /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K2Q /* Assets.xcassets */; };
+		1A2B3C4D5E6F7G8H9I0J1K2R /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K2S /* Preview Assets.xcassets */; };
+		1A2B3C4D5E6F7G8H9I0J1K2X /* FileManager+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K2Y /* FileManager+Extensions.swift */; };
+		1A2B3C4D5E6F7G8H9I0J1K34 /* BundledAnimationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K35 /* BundledAnimationsView.swift */; };
+		1A2B3C4D5E6F7G8H9I0J1K36 /* MainExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K37 /* MainExportView.swift */; };
+		1A2B3C4D5E6F7G8H9I0J1K40 /* LottieAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K41 /* LottieAnalyzer.swift */; };
+		1A2B3C4D5E6F7G8H9I0J1K43 /* EditPropertiesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K44 /* EditPropertiesSheet.swift */; };
+		1A2B3C4D5E6F7G8H9I0J1K45 /* ContentViewSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K46 /* ContentViewSupport.swift */; };
+		1A2B3C4D5E6F7G8H9I0J1K47 /* FlippieSharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K48 /* FlippieSharedComponents.swift */; };
+		2B3C4D5E6F7G8H9I0J1K2L01 /* LottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F7G8H9I0J1K2L04 /* LottieView.swift */; };
+		2B3C4D5E6F7G8H9I0J1K2L02 /* FlippieSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B3C4D5E6F7G8H9I0J1K2L03 /* FlippieSmokeTests.swift */; };
+		3C4D5E6F7G8H9I0J1K2L3M01 /* AnimationDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C4D5E6F7G8H9I0J1K2L3M02 /* AnimationDocument.swift */; };
+		3C4D5E6F7G8H9I0J1K2L3M03 /* LottieRuntimeVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C4D5E6F7G8H9I0J1K2L3M04 /* LottieRuntimeVersion.swift */; };
+		4D5E6F7G8H9I0J1K2L3M4N01 /* Lottie300 in Frameworks */ = {isa = PBXBuildFile; productRef = 4D5E6F7G8H9I0J1K2L3M4N11 /* Lottie300 */; };
+		4D5E6F7G8H9I0J1K2L3M4N02 /* Lottie350 in Frameworks */ = {isa = PBXBuildFile; productRef = 4D5E6F7G8H9I0J1K2L3M4N12 /* Lottie350 */; };
+		4D5E6F7G8H9I0J1K2L3M4N03 /* Lottie400 in Frameworks */ = {isa = PBXBuildFile; productRef = 4D5E6F7G8H9I0J1K2L3M4N13 /* Lottie400 */; };
+		4D5E6F7G8H9I0J1K2L3M4N04 /* Lottie461 in Frameworks */ = {isa = PBXBuildFile; productRef = 4D5E6F7G8H9I0J1K2L3M4N14 /* Lottie461 */; };
+		5E6F7G8H9I0J1K2L3M4N5O01 /* AnimationExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6F7G8H9I0J1K2L3M4N5O02 /* AnimationExporter.swift */; };
+		5E6F7G8H9I0J1K2L3M4N5O04 /* LottieImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6F7G8H9I0J1K2L3M4N5O05 /* LottieImportService.swift */; };
+		5E6F7G8H9I0J1K2L3M4N5O06 /* LottieWebPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E6F7G8H9I0J1K2L3M4N5O07 /* LottieWebPlayerView.swift */; };
+		5E6F7G8H9I0J1K2L3M4N5O08 /* lottie_svg.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 5E6F7G8H9I0J1K2L3M4N5O09 /* lottie_svg.min.js */; };
+		5E6F7G8H9I0J1K2L3M4N5O11 /* test_star.json in Resources */ = {isa = PBXBuildFile; fileRef = 5E6F7G8H9I0J1K2L3M4N5O12 /* test_star.json */; };
+		6F7G8H9I0J1K2L3M4N5O6P01 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6F7G8H9I0J1K2L3M4N5O6P02 /* LaunchScreen.storyboard */; };
+		7A0000000000000000000001 /* FlippieLogo.svg in Resources */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000003 /* FlippieLogo.svg */; };
+		7A0000000000000000000002 /* FlippieLogoBlink.svg in Resources */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000004 /* FlippieLogoBlink.svg */; };
+		E132CA2B2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  in Resources */ = {isa = PBXBuildFile; fileRef = E132CA2A2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  */; };
+		E132CA312DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA302DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json */; };
+		E132CA362DE4C7950085A116 /* horse_toy_outline_music_sa_outline_to_fill_28.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA332DE4C7950085A116 /* horse_toy_outline_music_sa_outline_to_fill_28.json */; };
+		E132CA372DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA342DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json */; };
+		E132CA382DE4C7950085A116 /* radio_outline_music_sa_outline_to_fill_28.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA352DE4C7950085A116 /* radio_outline_music_sa_outline_to_fill_28.json */; };
+		E132CA392DE4C7950085A116 /* heart_list_music_sa_outline_to_fill_28.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA322DE4C7950085A116 /* heart_list_music_sa_outline_to_fill_28.json */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2B3C4D5E6F7G8H9I0J1K2L0B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A2B3C4D5E6F7G8H9I0J1K22 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A2B3C4D5E6F7G8H9I0J1K29;
+			remoteInfo = Flippie;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		1A2B3C4D5E6F7G8H9I0J1K2A /* Flippie.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Flippie.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A2B3C4D5E6F7G8H9I0J1K2M /* FlippieApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlippieApp.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K2O /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K2Q /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K2S /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K2U /* AnimationPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationPlayerView.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K2W /* AnimationEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationEditorView.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K2Y /* FileManager+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FileManager+Extensions.swift"; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K35 /* BundledAnimationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledAnimationsView.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K37 /* MainExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainExportView.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K41 /* LottieAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieAnalyzer.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K44 /* EditPropertiesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditPropertiesSheet.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K46 /* ContentViewSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewSupport.swift; sourceTree = "<group>"; };
+		1A2B3C4D5E6F7G8H9I0J1K48 /* FlippieSharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlippieSharedComponents.swift; sourceTree = "<group>"; };
+		2B3C4D5E6F7G8H9I0J1K2L03 /* FlippieSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlippieSmokeTests.swift; sourceTree = "<group>"; };
+		2B3C4D5E6F7G8H9I0J1K2L04 /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
+		2B3C4D5E6F7G8H9I0J1K2L05 /* FlippieTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FlippieTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3C4D5E6F7G8H9I0J1K2L3M02 /* AnimationDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationDocument.swift; sourceTree = "<group>"; };
+		3C4D5E6F7G8H9I0J1K2L3M04 /* LottieRuntimeVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieRuntimeVersion.swift; sourceTree = "<group>"; };
+		5E6F7G8H9I0J1K2L3M4N5O02 /* AnimationExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationExporter.swift; sourceTree = "<group>"; };
+		5E6F7G8H9I0J1K2L3M4N5O05 /* LottieImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieImportService.swift; sourceTree = "<group>"; };
+		5E6F7G8H9I0J1K2L3M4N5O07 /* LottieWebPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieWebPlayerView.swift; sourceTree = "<group>"; };
+		5E6F7G8H9I0J1K2L3M4N5O09 /* lottie_svg.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = lottie_svg.min.js; sourceTree = "<group>"; };
+		5E6F7G8H9I0J1K2L3M4N5O12 /* test_star.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = test_star.json; sourceTree = "<group>"; };
+		6F7G8H9I0J1K2L3M4N5O6P02 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		7A0000000000000000000003 /* FlippieLogo.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = FlippieLogo.svg; sourceTree = "<group>"; };
+		7A0000000000000000000004 /* FlippieLogoBlink.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = FlippieLogoBlink.svg; sourceTree = "<group>"; };
+		E132CA2A2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  */ = {isa = PBXFileReference; lastKnownFileType = text; path = "note_outline_music_sa_outline_to_fill_28.json "; sourceTree = "<group>"; };
+		E132CA302DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "compass_music_sa_outline_to_fill_28 2.json"; sourceTree = "<group>"; };
+		E132CA322DE4C7950085A116 /* heart_list_music_sa_outline_to_fill_28.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = heart_list_music_sa_outline_to_fill_28.json; sourceTree = "<group>"; };
+		E132CA332DE4C7950085A116 /* horse_toy_outline_music_sa_outline_to_fill_28.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = horse_toy_outline_music_sa_outline_to_fill_28.json; sourceTree = "<group>"; };
+		E132CA342DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = podcast_books_outline_music_sa_outline_to_fill_28.json; sourceTree = "<group>"; };
+		E132CA352DE4C7950085A116 /* radio_outline_music_sa_outline_to_fill_28.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = radio_outline_music_sa_outline_to_fill_28.json; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1A2B3C4D5E6F7G8H9I0J1K27 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D5E6F7G8H9I0J1K2L3M4N01 /* Lottie300 in Frameworks */,
+				4D5E6F7G8H9I0J1K2L3M4N02 /* Lottie350 in Frameworks */,
+				4D5E6F7G8H9I0J1K2L3M4N03 /* Lottie400 in Frameworks */,
+				4D5E6F7G8H9I0J1K2L3M4N04 /* Lottie461 in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B3C4D5E6F7G8H9I0J1K2L06 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1A2B3C4D5E6F7G8H9I0J1K21 = {
+			isa = PBXGroup;
+			children = (
+				1A2B3C4D5E6F7G8H9I0J1K2C /* Flippie */,
+				2B3C4D5E6F7G8H9I0J1K2L09 /* FlippieTests */,
+				1A2B3C4D5E6F7G8H9I0J1K2B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1A2B3C4D5E6F7G8H9I0J1K2B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1A2B3C4D5E6F7G8H9I0J1K2A /* Flippie.app */,
+				2B3C4D5E6F7G8H9I0J1K2L05 /* FlippieTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1A2B3C4D5E6F7G8H9I0J1K2C /* Flippie */ = {
+			isa = PBXGroup;
+			children = (
+				1A2B3C4D5E6F7G8H9I0J1K31 /* Views */,
+				1A2B3C4D5E6F7G8H9I0J1K32 /* Extensions */,
+				1A2B3C4D5E6F7G8H9I0J1K42 /* Models */,
+				5E6F7G8H9I0J1K2L3M4N5O03 /* Services */,
+				5E6F7G8H9I0J1K2L3M4N5O10 /* Resources */,
+				1A2B3C4D5E6F7G8H9I0J1K2M /* FlippieApp.swift */,
+				1A2B3C4D5E6F7G8H9I0J1K2O /* ContentView.swift */,
+				1A2B3C4D5E6F7G8H9I0J1K2Q /* Assets.xcassets */,
+				6F7G8H9I0J1K2L3M4N5O6P02 /* LaunchScreen.storyboard */,
+				1A2B3C4D5E6F7G8H9I0J1K2D /* Preview Content */,
+			);
+			path = Flippie;
+			sourceTree = "<group>";
+		};
+		1A2B3C4D5E6F7G8H9I0J1K2D /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				1A2B3C4D5E6F7G8H9I0J1K2S /* Preview Assets.xcassets */,
+				E132CA322DE4C7950085A116 /* heart_list_music_sa_outline_to_fill_28.json */,
+				E132CA332DE4C7950085A116 /* horse_toy_outline_music_sa_outline_to_fill_28.json */,
+				E132CA342DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json */,
+				E132CA352DE4C7950085A116 /* radio_outline_music_sa_outline_to_fill_28.json */,
+				E132CA302DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json */,
+				E132CA2A2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		1A2B3C4D5E6F7G8H9I0J1K31 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				2B3C4D5E6F7G8H9I0J1K2L10 /* Legacy */,
+				2B3C4D5E6F7G8H9I0J1K2L04 /* LottieView.swift */,
+				5E6F7G8H9I0J1K2L3M4N5O07 /* LottieWebPlayerView.swift */,
+					1A2B3C4D5E6F7G8H9I0J1K35 /* BundledAnimationsView.swift */,
+					1A2B3C4D5E6F7G8H9I0J1K37 /* MainExportView.swift */,
+					1A2B3C4D5E6F7G8H9I0J1K44 /* EditPropertiesSheet.swift */,
+					1A2B3C4D5E6F7G8H9I0J1K48 /* FlippieSharedComponents.swift */,
+				);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		1A2B3C4D5E6F7G8H9I0J1K32 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				1A2B3C4D5E6F7G8H9I0J1K2Y /* FileManager+Extensions.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		1A2B3C4D5E6F7G8H9I0J1K42 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+					3C4D5E6F7G8H9I0J1K2L3M02 /* AnimationDocument.swift */,
+					3C4D5E6F7G8H9I0J1K2L3M04 /* LottieRuntimeVersion.swift */,
+					1A2B3C4D5E6F7G8H9I0J1K41 /* LottieAnalyzer.swift */,
+					1A2B3C4D5E6F7G8H9I0J1K46 /* ContentViewSupport.swift */,
+				);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		2B3C4D5E6F7G8H9I0J1K2L09 /* FlippieTests */ = {
+			isa = PBXGroup;
+			children = (
+				2B3C4D5E6F7G8H9I0J1K2L03 /* FlippieSmokeTests.swift */,
+				5E6F7G8H9I0J1K2L3M4N5O12 /* test_star.json */,
+			);
+			path = FlippieTests;
+			sourceTree = "<group>";
+		};
+		2B3C4D5E6F7G8H9I0J1K2L10 /* Legacy */ = {
+			isa = PBXGroup;
+			children = (
+				1A2B3C4D5E6F7G8H9I0J1K2U /* AnimationPlayerView.swift */,
+				1A2B3C4D5E6F7G8H9I0J1K2W /* AnimationEditorView.swift */,
+			);
+			name = Legacy;
+			sourceTree = "<group>";
+		};
+		5E6F7G8H9I0J1K2L3M4N5O03 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				5E6F7G8H9I0J1K2L3M4N5O02 /* AnimationExporter.swift */,
+				5E6F7G8H9I0J1K2L3M4N5O05 /* LottieImportService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		5E6F7G8H9I0J1K2L3M4N5O10 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				5E6F7G8H9I0J1K2L3M4N5O09 /* lottie_svg.min.js */,
+				7A0000000000000000000003 /* FlippieLogo.svg */,
+				7A0000000000000000000004 /* FlippieLogoBlink.svg */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1A2B3C4D5E6F7G8H9I0J1K29 /* Flippie */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1A2B3C4D5E6F7G8H9I0J1K2E /* Build configuration list for PBXNativeTarget "Flippie" */;
+			buildPhases = (
+				1A2B3C4D5E6F7G8H9I0J1K26 /* Sources */,
+				1A2B3C4D5E6F7G8H9I0J1K27 /* Frameworks */,
+				1A2B3C4D5E6F7G8H9I0J1K28 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Flippie;
+			packageProductDependencies = (
+				4D5E6F7G8H9I0J1K2L3M4N11 /* Lottie300 */,
+				4D5E6F7G8H9I0J1K2L3M4N12 /* Lottie350 */,
+				4D5E6F7G8H9I0J1K2L3M4N13 /* Lottie400 */,
+				4D5E6F7G8H9I0J1K2L3M4N14 /* Lottie461 */,
+			);
+			productName = Flippie;
+			productReference = 1A2B3C4D5E6F7G8H9I0J1K2A /* Flippie.app */;
+			productType = "com.apple.product-type.application";
+		};
+		2B3C4D5E6F7G8H9I0J1K2L3M4 /* FlippieTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2B3C4D5E6F7G8H9I0J1K2L0F /* Build configuration list for PBXNativeTarget "FlippieTests" */;
+			buildPhases = (
+				2B3C4D5E6F7G8H9I0J1K2L08 /* Sources */,
+				2B3C4D5E6F7G8H9I0J1K2L06 /* Frameworks */,
+				2B3C4D5E6F7G8H9I0J1K2L07 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2B3C4D5E6F7G8H9I0J1K2L0C /* PBXTargetDependency */,
+			);
+			name = FlippieTests;
+			productName = FlippieTests;
+			productReference = 2B3C4D5E6F7G8H9I0J1K2L05 /* FlippieTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1A2B3C4D5E6F7G8H9I0J1K22 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					1A2B3C4D5E6F7G8H9I0J1K29 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+					2B3C4D5E6F7G8H9I0J1K2L3M4 = {
+						CreatedOnToolsVersion = 15.4;
+						TestTargetID = 1A2B3C4D5E6F7G8H9I0J1K29;
+					};
+				};
+			};
+			buildConfigurationList = 1A2B3C4D5E6F7G8H9I0J1K25 /* Build configuration list for PBXProject "Flippie" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 1A2B3C4D5E6F7G8H9I0J1K21;
+			packageReferences = (
+				4D5E6F7G8H9I0J1K2L3M4N10 /* XCLocalSwiftPackageReference "Vendor/LottieVersions" */,
+			);
+			productRefGroup = 1A2B3C4D5E6F7G8H9I0J1K2B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1A2B3C4D5E6F7G8H9I0J1K29 /* Flippie */,
+				2B3C4D5E6F7G8H9I0J1K2L3M4 /* FlippieTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1A2B3C4D5E6F7G8H9I0J1K28 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A2B3C4D5E6F7G8H9I0J1K2R /* Preview Assets.xcassets in Resources */,
+				E132CA362DE4C7950085A116 /* horse_toy_outline_music_sa_outline_to_fill_28.json in Resources */,
+				E132CA372DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json in Resources */,
+				E132CA382DE4C7950085A116 /* radio_outline_music_sa_outline_to_fill_28.json in Resources */,
+				E132CA392DE4C7950085A116 /* heart_list_music_sa_outline_to_fill_28.json in Resources */,
+				E132CA312DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json in Resources */,
+				1A2B3C4D5E6F7G8H9I0J1K2P /* Assets.xcassets in Resources */,
+				6F7G8H9I0J1K2L3M4N5O6P01 /* LaunchScreen.storyboard in Resources */,
+				5E6F7G8H9I0J1K2L3M4N5O08 /* lottie_svg.min.js in Resources */,
+				7A0000000000000000000001 /* FlippieLogo.svg in Resources */,
+				7A0000000000000000000002 /* FlippieLogoBlink.svg in Resources */,
+				E132CA2B2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B3C4D5E6F7G8H9I0J1K2L07 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E6F7G8H9I0J1K2L3M4N5O11 /* test_star.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1A2B3C4D5E6F7G8H9I0J1K26 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A2B3C4D5E6F7G8H9I0J1K2N /* ContentView.swift in Sources */,
+				2B3C4D5E6F7G8H9I0J1K2L01 /* LottieView.swift in Sources */,
+				1A2B3C4D5E6F7G8H9I0J1K34 /* BundledAnimationsView.swift in Sources */,
+				1A2B3C4D5E6F7G8H9I0J1K36 /* MainExportView.swift in Sources */,
+				3C4D5E6F7G8H9I0J1K2L3M01 /* AnimationDocument.swift in Sources */,
+				3C4D5E6F7G8H9I0J1K2L3M03 /* LottieRuntimeVersion.swift in Sources */,
+				5E6F7G8H9I0J1K2L3M4N5O01 /* AnimationExporter.swift in Sources */,
+				5E6F7G8H9I0J1K2L3M4N5O04 /* LottieImportService.swift in Sources */,
+				5E6F7G8H9I0J1K2L3M4N5O06 /* LottieWebPlayerView.swift in Sources */,
+					1A2B3C4D5E6F7G8H9I0J1K40 /* LottieAnalyzer.swift in Sources */,
+					1A2B3C4D5E6F7G8H9I0J1K45 /* ContentViewSupport.swift in Sources */,
+					1A2B3C4D5E6F7G8H9I0J1K2X /* FileManager+Extensions.swift in Sources */,
+					1A2B3C4D5E6F7G8H9I0J1K2L /* FlippieApp.swift in Sources */,
+					1A2B3C4D5E6F7G8H9I0J1K43 /* EditPropertiesSheet.swift in Sources */,
+					1A2B3C4D5E6F7G8H9I0J1K47 /* FlippieSharedComponents.swift in Sources */,
+				);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B3C4D5E6F7G8H9I0J1K2L08 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B3C4D5E6F7G8H9I0J1K2L02 /* FlippieSmokeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2B3C4D5E6F7G8H9I0J1K2L0C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A2B3C4D5E6F7G8H9I0J1K29 /* Flippie */;
+			targetProxy = 2B3C4D5E6F7G8H9I0J1K2L0B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1A2B3C4D5E6F7G8H9I0J1K2F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		1A2B3C4D5E6F7G8H9I0J1K2G /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		1A2B3C4D5E6F7G8H9I0J1K2H /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Flippie/Preview Content\"";
+				DEVELOPMENT_TEAM = MNP5VJUM99;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Flippie";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.flippie.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1A2B3C4D5E6F7G8H9I0J1K2I /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Flippie/Preview Content\"";
+				DEVELOPMENT_TEAM = MNP5VJUM99;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Flippie";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.flippie.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		2B3C4D5E6F7G8H9I0J1K2L0D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.flippie.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Flippie.app/Flippie";
+			};
+			name = Debug;
+		};
+		2B3C4D5E6F7G8H9I0J1K2L0E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.flippie.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Flippie.app/Flippie";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1A2B3C4D5E6F7G8H9I0J1K25 /* Build configuration list for PBXProject "Flippie" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A2B3C4D5E6F7G8H9I0J1K2F /* Debug */,
+				1A2B3C4D5E6F7G8H9I0J1K2G /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1A2B3C4D5E6F7G8H9I0J1K2E /* Build configuration list for PBXNativeTarget "Flippie" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A2B3C4D5E6F7G8H9I0J1K2H /* Debug */,
+				1A2B3C4D5E6F7G8H9I0J1K2I /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2B3C4D5E6F7G8H9I0J1K2L0F /* Build configuration list for PBXNativeTarget "FlippieTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B3C4D5E6F7G8H9I0J1K2L0D /* Debug */,
+				2B3C4D5E6F7G8H9I0J1K2L0E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		4D5E6F7G8H9I0J1K2L3M4N10 /* XCLocalSwiftPackageReference "Vendor/LottieVersions" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Vendor/LottieVersions;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4D5E6F7G8H9I0J1K2L3M4N11 /* Lottie300 */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Lottie300;
+		};
+		4D5E6F7G8H9I0J1K2L3M4N12 /* Lottie350 */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Lottie350;
+		};
+		4D5E6F7G8H9I0J1K2L3M4N13 /* Lottie400 */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Lottie400;
+		};
+		4D5E6F7G8H9I0J1K2L3M4N14 /* Lottie461 */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Lottie461;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 1A2B3C4D5E6F7G8H9I0J1K22 /* Project object */;
+}

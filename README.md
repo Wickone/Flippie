@@ -1,6 +1,6 @@
-# Lottie Lab
+# Flippie
 
-Lottie Lab is an iOS motion QA and export tool for Lottie animations. The
+Flippie is an iOS motion QA and export tool for Lottie animations. The
 current prototype supports JSON import, playback, basic color inspection,
 cross-version rendering, and JSON/GIF export. MP4 export is planned.
 
@@ -33,6 +33,8 @@ cross-version rendering, and JSON/GIF export. MP4 export is planned.
 - **Renderer test**: Compares Core Animation and Main Thread side by side
 - **Library matrix**: CI builds Lottie iOS 3.0.0, 3.5.0, 4.0.0, and 4.6.1
 - **In-app versions**: Switch Lottie iOS 3.0.0, 3.5.0, 4.0.0, and 4.6.1
+- **Gaussian Blur**: Uses the bundled lottie-web SVG renderer for layer effect
+  `ty: 29`, including preview and frame export
 
 ## Getting Started
 
@@ -42,20 +44,20 @@ cross-version rendering, and JSON/GIF export. MP4 export is planned.
 - Swift 5.0
 
 ### Installation
-1. Open `LottieLab.xcodeproj` in Xcode
+1. Open `Flippie.xcodeproj` in Xcode
 2. Xcode will resolve the local `Vendor/LottieVersions` package
 3. Build and run the project
 
 ### Project Structure
 ```
-LottieLab/
-├── LottieLab/
+Flippie/
+├── Flippie/
 │   ├── Views/
 │   │   ├── AnimationPlayerView.swift    # Player tab with controls
 │   │   └── AnimationEditorView.swift    # Editor tab with properties
 │   ├── Extensions/
 │   │   └── FileManager+Extensions.swift # File handling utilities
-│   ├── LottieLabApp.swift           # App entry point
+│   ├── FlippieApp.swift           # App entry point
 │   ├── ContentView.swift               # Main tab view
 │   └── Assets.xcassets/                # App icons and colors
 └── SampleAnimations/                   # Example Lottie files
@@ -86,6 +88,8 @@ LottieLab/
 - **Lottie iOS**: Animation rendering and playback
   - GitHub: https://github.com/airbnb/lottie-ios
   - Comparison versions: exactly 3.0.0, 3.5.0, 4.0.0, and 4.6.1
+- **lottie-web 5.13.0**: SVG fallback for Gaussian Blur
+  - GitHub: https://github.com/airbnb/lottie-web
 
 ## Building and Testing
 
@@ -93,7 +97,7 @@ LottieLab/
 ```bash
 # Open in Xcode and build for simulator
 # or build from command line:
-xcodebuild -project LottieLab.xcodeproj -scheme LottieLab -destination 'platform=iOS Simulator,name=iPhone 15' build
+xcodebuild -project Flippie.xcodeproj -scheme Flippie -destination 'platform=iOS Simulator,name=iPhone 15' build
 ```
 
 ### Device Testing
@@ -141,5 +145,5 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for local setup, tests, and CI details.
 
 ## License
 
-Lottie Lab is available under the MIT License. Lottie iOS is subject to its
+Flippie is available under the MIT License. Lottie iOS is subject to its
 own license terms.

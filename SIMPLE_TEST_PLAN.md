@@ -3,7 +3,7 @@
 ## ✅ **STEP-BY-STEP TEST PLAN**
 
 ### **Step 1: Load App**
-1. Launch the LottieLab app
+1. Launch the Flippie app
 2. You should see the main screen with 440px preview area
 
 ### **Step 2: Load Any Animation** 

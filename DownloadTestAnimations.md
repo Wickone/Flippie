@@ -19,7 +19,7 @@
 ## Quick Downloads:
 ```bash
 # From your project directory:
-cd /Users/Wickone/Desktop/LottieLab/LottieLab/Preview\ Content/
+cd /Users/Wickone/Desktop/Flippie/Flippie/Preview\ Content/
 
 # Download some popular animations (examples):
 curl -o loading-dots.json "https://assets1.lottiefiles.com/packages/lf20_a2chheio.json"

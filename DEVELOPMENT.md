@@ -8,17 +8,17 @@
 
 ## First run
 
-1. Open `LottieLab.xcodeproj`.
+1. Open `Flippie.xcodeproj`.
 2. Wait for Swift Package Manager to resolve Lottie.
 3. Select an installed iOS simulator.
-4. Run the shared `LottieLab` scheme.
+4. Run the shared `Flippie` scheme.
 
 ## Command-line verification
 
 ```bash
 xcodebuild test \
-  -project LottieLab.xcodeproj \
-  -scheme LottieLab \
+  -project Flippie.xcodeproj \
+  -scheme Flippie \
   -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
   CODE_SIGNING_ALLOWED=NO
 ```
@@ -29,7 +29,7 @@ CoreSimulator service must come from the same Xcode release.
 
 ## Renderer and version testing
 
-Lottie Lab links four namespaced Lottie modules for interactive version
+Flippie links four namespaced Lottie modules for interactive version
 switching. Its **Renderer Test** screen uses `Lottie461` to load the same JSON
 with forced Core Animation and Main Thread configurations.
 
