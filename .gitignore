@@ -9,6 +9,8 @@ xcuserdata/
 # Build products
 DerivedData/
 build/
+*.xcarchive
+*.xcresult
 *.ipa
 *.dSYM.zip
 *.dSYM
@@ -22,3 +24,13 @@ build/
 .codex/
 .agents/
 
+# Logs and temporary files
+logs/
+*.log
+*.tmp
+*.swp
+
+# Local secrets
+.env
+.env.*
+!.env.example

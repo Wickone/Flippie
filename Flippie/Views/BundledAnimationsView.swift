@@ -9,8 +9,8 @@ struct BundledAnimationsView: View {
     @State private var alertMessage = ""
 
     let bundledAnimations = [
-        "note_outline_music_sa_outline_to_fill_28.json ",
-        "compass_music_sa_outline_to_fill_28 2.json",
+        "note_outline_music_sa_outline_to_fill_28.json",
+        "compass_music_sa_outline_to_fill_28.json",
         "heart_list_music_sa_outline_to_fill_28.json",
         "horse_toy_outline_music_sa_outline_to_fill_28.json",
         "podcast_books_outline_music_sa_outline_to_fill_28.json",

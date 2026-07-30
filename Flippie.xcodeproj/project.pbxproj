@@ -34,8 +34,8 @@
 		6F7G8H9I0J1K2L3M4N5O6P01 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6F7G8H9I0J1K2L3M4N5O6P02 /* LaunchScreen.storyboard */; };
 		7A0000000000000000000001 /* FlippieLogo.svg in Resources */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000003 /* FlippieLogo.svg */; };
 		7A0000000000000000000002 /* FlippieLogoBlink.svg in Resources */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000004 /* FlippieLogoBlink.svg */; };
-		E132CA2B2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  in Resources */ = {isa = PBXBuildFile; fileRef = E132CA2A2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  */; };
-		E132CA312DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA302DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json */; };
+		E132CA2B2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA2A2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json */; };
+		E132CA312DE4C4340085A116 /* compass_music_sa_outline_to_fill_28.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA302DE4C4340085A116 /* compass_music_sa_outline_to_fill_28.json */; };
 		E132CA362DE4C7950085A116 /* horse_toy_outline_music_sa_outline_to_fill_28.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA332DE4C7950085A116 /* horse_toy_outline_music_sa_outline_to_fill_28.json */; };
 		E132CA372DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA342DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json */; };
 		E132CA382DE4C7950085A116 /* radio_outline_music_sa_outline_to_fill_28.json in Resources */ = {isa = PBXBuildFile; fileRef = E132CA352DE4C7950085A116 /* radio_outline_music_sa_outline_to_fill_28.json */; };
@@ -80,8 +80,8 @@
 		6F7G8H9I0J1K2L3M4N5O6P02 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		7A0000000000000000000003 /* FlippieLogo.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = FlippieLogo.svg; sourceTree = "<group>"; };
 		7A0000000000000000000004 /* FlippieLogoBlink.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = FlippieLogoBlink.svg; sourceTree = "<group>"; };
-		E132CA2A2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  */ = {isa = PBXFileReference; lastKnownFileType = text; path = "note_outline_music_sa_outline_to_fill_28.json "; sourceTree = "<group>"; };
-		E132CA302DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "compass_music_sa_outline_to_fill_28 2.json"; sourceTree = "<group>"; };
+		E132CA2A2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = note_outline_music_sa_outline_to_fill_28.json; sourceTree = "<group>"; };
+		E132CA302DE4C4340085A116 /* compass_music_sa_outline_to_fill_28.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = compass_music_sa_outline_to_fill_28.json; sourceTree = "<group>"; };
 		E132CA322DE4C7950085A116 /* heart_list_music_sa_outline_to_fill_28.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = heart_list_music_sa_outline_to_fill_28.json; sourceTree = "<group>"; };
 		E132CA332DE4C7950085A116 /* horse_toy_outline_music_sa_outline_to_fill_28.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = horse_toy_outline_music_sa_outline_to_fill_28.json; sourceTree = "<group>"; };
 		E132CA342DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = podcast_books_outline_music_sa_outline_to_fill_28.json; sourceTree = "<group>"; };
@@ -153,8 +153,8 @@
 				E132CA332DE4C7950085A116 /* horse_toy_outline_music_sa_outline_to_fill_28.json */,
 				E132CA342DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json */,
 				E132CA352DE4C7950085A116 /* radio_outline_music_sa_outline_to_fill_28.json */,
-				E132CA302DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json */,
-				E132CA2A2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  */,
+				E132CA302DE4C4340085A116 /* compass_music_sa_outline_to_fill_28.json */,
+				E132CA2A2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json */,
 			);
 			path = "Preview Content";
 			sourceTree = "<group>";
@@ -324,13 +324,13 @@
 				E132CA372DE4C7950085A116 /* podcast_books_outline_music_sa_outline_to_fill_28.json in Resources */,
 				E132CA382DE4C7950085A116 /* radio_outline_music_sa_outline_to_fill_28.json in Resources */,
 				E132CA392DE4C7950085A116 /* heart_list_music_sa_outline_to_fill_28.json in Resources */,
-				E132CA312DE4C4340085A116 /* compass_music_sa_outline_to_fill_28 2.json in Resources */,
+				E132CA312DE4C4340085A116 /* compass_music_sa_outline_to_fill_28.json in Resources */,
 				1A2B3C4D5E6F7G8H9I0J1K2P /* Assets.xcassets in Resources */,
 				6F7G8H9I0J1K2L3M4N5O6P01 /* LaunchScreen.storyboard in Resources */,
 				5E6F7G8H9I0J1K2L3M4N5O08 /* lottie_svg.min.js in Resources */,
 				7A0000000000000000000001 /* FlippieLogo.svg in Resources */,
 				7A0000000000000000000002 /* FlippieLogoBlink.svg in Resources */,
-				E132CA2B2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json  in Resources */,
+				E132CA2B2DE4B3F70085A116 /* note_outline_music_sa_outline_to_fill_28.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

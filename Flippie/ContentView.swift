@@ -1474,7 +1474,7 @@ struct ContentView: View {
         // Try to load the first available sample animation
         let sampleAnimations = [
             "note_outline_music_sa_outline_to_fill_28.json",
-            "compass_music_sa_outline_to_fill_28 2.json",
+            "compass_music_sa_outline_to_fill_28.json",
             "heart_list_music_sa_outline_to_fill_28.json",
             "horse_toy_outline_music_sa_outline_to_fill_28.json",
             "podcast_books_outline_music_sa_outline_to_fill_28.json",
