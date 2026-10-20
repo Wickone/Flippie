@@ -6,17 +6,14 @@ private func softHaptic() {
 }
 
 struct ContentView: View {
-    @StateObject private var document = AnimationDocument()
-    @State private var showingBundledAnimations = false
-    @State private var showingExportSheet = false
-    @State private var showingEditSheet = false
-    @State private var showingRendererComparison = false
+    @StateObject private var document: AnimationDocument
+    @StateObject private var session: PlaybackSession
+    @StateObject private var sheets: SheetCoordinator
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showingFileImporter = false
     @State private var fileImportMode: FileImportMode = .animation
-    @State private var showingPlaybackSettingsDialog = false
     @State private var showingAlert = false
-    @State private var importReport: LottieImportReport?
-    @State private var pendingPackage: ImportedLottieFile?
+    @State private var showAssetPickerAfterDismiss = false
     @State private var pendingPackageCleanupURL: URL?
     @State private var pendingAnimationSelection: (file: ImportedLottieFile, path: String)?
     @State private var pendingAssetRepairReport: LottieImportReport?
@@ -25,33 +22,30 @@ struct ContentView: View {
     @State private var statusMessage = ""
     @State private var isImporting = false
     @State private var isRepairingMissingAssets = false
-    @State private var isSwitchingRuntime = false
-    @State private var pendingRuntime: LottieRuntimeVersion?
     @State private var runtimeStatusMessage = ""
     @State private var emptyGreetingIndex = 0
     @State private var emptyTitle = "Import lottie"
     @State private var emptyMessage = "Welcome to your flippie! Tap this text to choose a ready-made lottie, see how it fits your flippie, and add it when you’re ready."
-    @State private var editingEmptyCopy = false
     @State private var previousControlAnimationTick = 0
     @State private var playControlAnimationTick = 0
     @State private var nextControlAnimationTick = 0
     @State private var loadedTabSelection: LoadedActionTab = .preview
     
-    // Animation player state
-    @State private var animationView = VersionedLottiePlayerView()
-    @State private var hasAnimation = false
-    @State private var isPlaying = false
-    @State private var currentFrame: Double = 0
-    @State private var totalFrames: Double = 100
-    @State private var animationSpeed: Double = 1.0
-    @State private var progressTimer: Timer?
-    
-    // Frame mapping for offset animations
-    @State private var animationStartFrame: Double = 0
-    @State private var animationEndFrame: Double = 100
-    
-    // Animation properties
-    @State private var loopMode: PlayerLoopMode = .loop
+    init(document: AnimationDocument? = nil, session: PlaybackSession? = nil, sheets: SheetCoordinator? = nil) {
+        _document = StateObject(wrappedValue: document ?? AnimationDocument())
+        _session = StateObject(wrappedValue: session ?? PlaybackSession())
+        _sheets = StateObject(wrappedValue: sheets ?? SheetCoordinator())
+    }
+
+    private var animationView: VersionedLottiePlayerView { session.player }
+    private var hasAnimation: Bool { session.hasAnimation }
+    private var isPlaying: Bool { session.isPlaying }
+    private var currentFrame: Double { session.currentFrame }
+    private var totalFrames: Double { session.totalFrames }
+    private var animationSpeed: Double { session.speed }
+    private var loopMode: PlayerLoopMode { session.loopMode }
+    private var pendingRuntime: LottieRuntimeVersion? { session.pendingRuntime }
+    private var isSwitchingRuntime: Bool { session.pendingRuntime != nil }
 
     private let emptyGreetings = [
         "Hi! 👋",
@@ -147,7 +141,7 @@ struct ContentView: View {
     private var editButton: some View {
         Button(action: {
             softHaptic()
-            showingEditSheet = true
+            sheets.present(.edit)
         }) {
             HStack {
                 Image(systemName: "slider.horizontal.3")
@@ -199,7 +193,7 @@ struct ContentView: View {
             }
             
             // Progress slider
-            Slider(value: $currentFrame, in: 0...totalFrames) { editing in
+            Slider(value: Binding(get: { currentFrame }, set: { seekToFrame($0) }), in: 0...max(1, totalFrames)) { editing in
                 if !editing {
                     seekToFrame(currentFrame)
                 }
@@ -301,7 +295,7 @@ struct ContentView: View {
                 Spacer()
                 Button("Test Renderers") {
                     softHaptic()
-                    showingRendererComparison = true
+                    sheets.present(.rendererComparison)
                 }
                 .buttonStyle(.borderless)
                 .disabled(
@@ -498,7 +492,7 @@ struct ContentView: View {
     private func playbackSettingsMenu(scale: CGFloat) -> some View {
         Button {
             softHaptic()
-            showingPlaybackSettingsDialog = true
+            sheets.present(.playbackSettings)
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 17 * scale, weight: .bold))
@@ -672,10 +666,10 @@ struct ContentView: View {
             break
         case .edit:
             softHaptic()
-            showingEditSheet = true
+            sheets.present(.edit)
         case .export:
             softHaptic()
-            showingExportSheet = true
+            sheets.present(.export)
         }
     }
 
@@ -901,7 +895,7 @@ struct ContentView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             softHaptic()
-                            showingBundledAnimations = true
+                            sheets.present(.bundledAnimations)
                         }
                 }
                 .frame(width: 329 * scale, height: 132 * scale)
@@ -953,12 +947,10 @@ struct ContentView: View {
         } message: {
             Text(alertMessage)
         }
-        .sheet(isPresented: $showingBundledAnimations) {
-            BundledAnimationsView { url in
-                try loadAnimation(from: url)
-            }
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+        .sheet(item: Binding(get: { sheets.active }, set: { if $0 == nil { sheets.dismiss() } }), onDismiss: sheetDidDismiss) { route in
+            sheetContent(for: route)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .fileImporter(
             isPresented: $showingFileImporter,
@@ -967,7 +959,27 @@ struct ContentView: View {
         ) { result in
             handleFileImporterResult(result)
         }
-        .sheet(item: $importReport) { report in
+        .onAppear {
+            session.setSceneActive(scenePhase == .active)
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-loadSampleOnLaunch"), !hasAnimation {
+                loadFirstSampleAnimation()
+            }
+            #endif
+        }
+        .onChange(of: scenePhase) { _, phase in
+            session.setSceneActive(phase == .active)
+        }
+    }
+
+    @ViewBuilder
+    private func sheetContent(for route: SheetRoute) -> some View {
+        switch route {
+        case .bundledAnimations:
+            BundledAnimationsView { url in
+                try await loadAnimation(from: url)
+            }
+        case .importReport(let report):
             ImportReportSheet(
                 report: report,
                 metadata: document.metadata,
@@ -978,59 +990,41 @@ struct ContentView: View {
                     beginMissingAssetRepair(from: report)
                 }
             )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(item: $pendingPackage, onDismiss: discardPendingPackage) { imported in
+        case .animationPicker(let imported):
             LottieAnimationPickerSheet(
                 animations: imported.report.animations,
                 selectedPath: imported.report.selectedAnimationPath,
                 onSelect: { path in
                     pendingAnimationSelection = (imported, path)
-                    pendingPackage = nil
+                    sheets.dismiss()
                 },
-                onCancel: { pendingPackage = nil }
+                onCancel: { sheets.dismiss() }
             )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showingExportSheet) {
+        case .export:
             MainExportView(document: document)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $editingEmptyCopy) {
+        case .emptyCopy:
             EmptyCopyEditorSheet(
                 title: $emptyTitle,
                 message: $emptyMessage
             )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showingEditSheet) {
+        case .edit:
             EditPropertiesSheet(
                 document: document,
-                animationSpeed: $animationSpeed,
-                totalFrames: $totalFrames,
+                animationSpeed: $session.speed,
+                totalFrames: totalFrames,
                 onDocumentChanged: {
-                    try reloadAnimationFromDocument()
+                    try await reloadAnimationFromDocument()
                 }
             )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showingRendererComparison) {
+        case .rendererComparison:
             if let data = document.renderedData {
                 RendererComparisonView(
                     data: data,
                     formatVersion: document.metadata?.formatVersion,
                     baseURL: document.sourceURL?.deletingLastPathComponent()
                 )
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
             }
-        }
-        .sheet(isPresented: $showingPlaybackSettingsDialog) {
+        case .playbackSettings:
             PlaybackSettingsSheet(
                 selectedRuntime: runtimeSelection,
                 isSwitchingRuntime: isSwitchingRuntime,
@@ -1046,35 +1040,32 @@ struct ContentView: View {
                 ),
                 onTestRenderers: {
                     softHaptic()
-                    showingPlaybackSettingsDialog = false
-                    showingRendererComparison = true
+                    sheets.present(.rendererComparison)
                 }
             )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
         }
-        .onAppear {
-            #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("-loadSampleOnLaunch"), !hasAnimation {
-                loadFirstSampleAnimation()
-            }
-            #endif
-        }
-        .onDisappear {
-            progressTimer?.invalidate()
+    }
+
+    private func sheetDidDismiss() {
+        let dismissed = sheets.didDismiss()
+        if case .animationPicker = dismissed { discardPendingPackage() }
+        if showAssetPickerAfterDismiss {
+            showAssetPickerAfterDismiss = false
+            fileImportMode = .assetRepair
+            showingFileImporter = true
         }
     }
     
     // MARK: - Animation Loading
-    private func loadAnimation(from url: URL) throws {
+    private func loadAnimation(from url: URL) async throws {
         statusMessage = "Loading animation..."
 
         let data = try Data(contentsOf: url)
-        try loadAnimation(data: data, sourceURL: url)
+        try await loadAnimation(data: data, sourceURL: url)
         statusMessage = ""
     }
 
-    private func loadAnimation(data: Data, sourceURL: URL) throws {
+    private func loadAnimation(data: Data, sourceURL: URL) async throws {
         try LottieImportService.validate(data)
 
         let candidate = AnimationDocument()
@@ -1082,7 +1073,7 @@ struct ContentView: View {
         guard let candidateData = candidate.renderedData else {
             throw AnimationDocumentError.invalidRootObject
         }
-        try configurePlayer(
+        try await configurePlayer(
             with: candidateData,
             runtime: .embedded,
             baseURL: sourceURL.deletingLastPathComponent(),
@@ -1090,21 +1081,20 @@ struct ContentView: View {
         )
 
         try document.load(data: data, sourceURL: sourceURL)
-        animationSpeed = document.edits.playbackSpeed
-        animationView.animationSpeed = animationSpeed
+        session.speed = document.edits.playbackSpeed
         runtimeStatusMessage = document.hasRenderingLimitations
             ? "Gaussian Blur rendered with lottie-web"
             : "Loaded with \(document.selectedRuntime.title)"
     }
 
-    private func reloadAnimationFromDocument() throws {
-        animationSpeed = document.edits.playbackSpeed
-        try configurePlayer(
+    private func reloadAnimationFromDocument() async throws {
+        try await configurePlayer(
             with: document.renderedData,
             runtime: document.selectedRuntime,
             baseURL: document.sourceURL?.deletingLastPathComponent(),
             preservingProgress: true
         )
+        session.speed = document.edits.playbackSpeed
     }
 
     private func configurePlayer(
@@ -1112,37 +1102,17 @@ struct ContentView: View {
         runtime: LottieRuntimeVersion,
         baseURL: URL? = nil,
         preservingProgress: Bool = false
-    ) throws {
+    ) async throws {
         guard let data else {
             throw AnimationDocumentError.invalidRootObject
         }
 
-        let previousProgress = preservingProgress ? animationView.currentProgress : 0
-        let wasPlaying = preservingProgress && isPlaying
-
-        animationView.stop()
-        progressTimer?.invalidate()
-        let frameRange = try animationView.load(
+        try await session.load(
             data: data,
             runtime: runtime,
-            baseURL: baseURL
+            baseURL: baseURL,
+            preservingPlayback: preservingProgress
         )
-        animationView.loopMode = loopMode
-        animationView.animationSpeed = animationSpeed
-        animationView.backgroundColor = .clear
-
-        animationStartFrame = frameRange.start
-        animationEndFrame = frameRange.end
-        totalFrames = animationEndFrame - animationStartFrame
-        currentFrame = preservingProgress ? previousProgress * totalFrames : 0
-        hasAnimation = true
-        isPlaying = wasPlaying
-        animationView.currentProgress = previousProgress
-
-        if wasPlaying {
-            animationView.play()
-            startProgressTracking()
-        }
     }
 
     private func switchRuntime(to runtime: LottieRuntimeVersion) {
@@ -1151,35 +1121,23 @@ struct ContentView: View {
               !isSwitchingRuntime else { return }
 
         let previousRuntime = document.selectedRuntime
-        let wasPlaying = isPlaying
-        isSwitchingRuntime = true
-        pendingRuntime = runtime
         runtimeStatusMessage = ""
 
         Task { @MainActor in
-            await Task.yield()
-            defer {
-                isSwitchingRuntime = false
-                pendingRuntime = nil
-            }
-
             do {
-                try configurePlayer(
-                    with: document.renderedData,
+                guard let data = document.renderedData else { return }
+                try await session.switchRuntime(
+                    data: data,
                     runtime: runtime,
-                    baseURL: document.sourceURL?.deletingLastPathComponent(),
-                    preservingProgress: true
+                    baseURL: document.sourceURL?.deletingLastPathComponent()
                 )
                 document.selectRuntime(runtime)
                 runtimeStatusMessage = document.hasRenderingLimitations
                     ? "Gaussian Blur uses the shared lottie-web renderer"
                     : "Rendered successfully with \(runtime.title)"
+            } catch is CancellationError {
+                // Back or a newer import/switch superseded this request.
             } catch {
-                if wasPlaying {
-                    animationView.play()
-                    startProgressTracking()
-                    isPlaying = true
-                }
                 alertMessage = "\(runtime.title) could not render this animation. \(previousRuntime.title) remains active.\n\n\(error.localizedDescription)"
                 showingAlert = true
             }
@@ -1215,7 +1173,7 @@ struct ContentView: View {
             repairMissingAssets(in: report, from: url)
         case .failure(let error):
             if (error as NSError).code == NSUserCancelledError {
-                importReport = pendingAssetRepairReport
+                if let report = pendingAssetRepairReport { sheets.present(.importReport(report)) }
                 pendingAssetRepairReport = nil
                 return
             }
@@ -1237,9 +1195,9 @@ struct ContentView: View {
                 packageURL = imported.packageURL
                 if imported.report.animations.count > 1 {
                     pendingPackageCleanupURL = imported.packageURL
-                    pendingPackage = imported
+                    sheets.present(.animationPicker(imported))
                 } else {
-                    try finishImport(imported)
+                    try await finishImport(imported)
                 }
                 statusMessage = ""
             } catch {
@@ -1273,7 +1231,7 @@ struct ContentView: View {
             defer { isImporting = false; statusMessage = "" }
             do {
                 let selected = try await LottieImportService.selectAnimation(path: path, in: imported)
-                try finishImport(selected)
+                try await finishImport(selected)
             } catch {
                 try? FileManager.default.removeItem(at: imported.packageURL)
                 alertMessage = "Import failed: \(error.localizedDescription)"
@@ -1282,26 +1240,21 @@ struct ContentView: View {
         }
     }
 
-    private func finishImport(_ imported: ImportedLottieFile) throws {
-        try loadAnimation(data: imported.data, sourceURL: imported.url)
+    private func finishImport(_ imported: ImportedLottieFile) async throws {
+        try await loadAnimation(data: imported.data, sourceURL: imported.url)
         statusMessage = "Testing runtime compatibility…"
         importCompatibilityResults = makeCompatibilityMatrix(
             data: document.renderedData ?? imported.data,
             baseURL: imported.url.deletingLastPathComponent()
         )
-        importReport = imported.report
+        sheets.present(.importReport(imported.report))
     }
 
     private func beginMissingAssetRepair(from report: LottieImportReport) {
         softHaptic()
         pendingAssetRepairReport = report
-        importReport = nil
-
-        Task { @MainActor in
-            await Task.yield()
-            fileImportMode = .assetRepair
-            showingFileImporter = true
-        }
+        showAssetPickerAfterDismiss = true
+        sheets.dismiss()
     }
 
     private func repairMissingAssets(
@@ -1323,16 +1276,16 @@ struct ContentView: View {
                     from: searchDirectory
                 )
                 let data = try Data(contentsOf: repairedReport.animationURL)
-                try loadAnimation(data: data, sourceURL: repairedReport.animationURL)
+                try await loadAnimation(data: data, sourceURL: repairedReport.animationURL)
                 importCompatibilityResults = makeCompatibilityMatrix(
                     data: document.renderedData ?? data,
                     baseURL: repairedReport.animationURL.deletingLastPathComponent()
                 )
-                importReport = repairedReport
+                sheets.present(.importReport(repairedReport))
                 statusMessage = ""
             } catch {
                 statusMessage = ""
-                importReport = report
+                sheets.present(.importReport(report))
                 alertMessage = "Asset repair failed: \(error.localizedDescription)"
                 showingAlert = true
             }
@@ -1386,77 +1339,49 @@ struct ContentView: View {
     }
 
     private func closeCurrentAnimation() {
-        animationView.stop()
-        progressTimer?.invalidate()
-        progressTimer = nil
-        isPlaying = false
-        currentFrame = 0
-        hasAnimation = false
+        session.close()
         statusMessage = ""
         runtimeStatusMessage = ""
-        importReport = nil
         pendingAssetRepairReport = nil
         importCompatibilityResults = []
-        isSwitchingRuntime = false
-        pendingRuntime = nil
     }
 
     // MARK: - Playback Controls
     private func togglePlayback() {
-        print("🎮 ContentView: Toggle playback - currently playing: \(isPlaying)")
-        guard hasAnimation else { 
-            print("❌ ContentView: No animation loaded for playback")
-            return 
-        }
+        guard hasAnimation else { return }
         playControlAnimationTick += 1
         softHaptic()
         
         if isPlaying {
-            print("🎮 ContentView: Pausing animation")
-            animationView.pause()
-            progressTimer?.invalidate()
+            session.pause()
         } else {
-            print("🎮 ContentView: Playing animation")
-            animationView.play()
-            startProgressTracking()
+            session.play()
         }
-        isPlaying.toggle()
-        print("🎮 ContentView: Playback state now: \(isPlaying)")
     }
     
     private func previousFrame() {
         guard hasAnimation else { return }
         previousControlAnimationTick += 1
         softHaptic()
-        let newUserFrame = max(0, currentFrame - 1)
-        currentFrame = newUserFrame
-        let animationFrame = userFrameToAnimationFrame(newUserFrame)
-        animationView.currentFrame = animationFrame
-        print("🎮 Previous: User frame \(Int(newUserFrame)) → Animation frame \(Int(animationFrame))")
+        session.step(by: -1)
     }
     
     private func nextFrame() {
         guard hasAnimation else { return }
         nextControlAnimationTick += 1
         softHaptic()
-        let newUserFrame = min(totalFrames, currentFrame + 1)
-        currentFrame = newUserFrame
-        let animationFrame = userFrameToAnimationFrame(newUserFrame)
-        animationView.currentFrame = animationFrame
-        print("🎮 Next: User frame \(Int(newUserFrame)) → Animation frame \(Int(animationFrame))")
+        session.step(by: 1)
     }
     
     private func seekToFrame(_ frame: Double) {
         guard hasAnimation else { return }
-        let animationFrame = userFrameToAnimationFrame(frame)
-        animationView.currentFrame = animationFrame
-        print("🎮 Seek: User frame \(Int(frame)) → Animation frame \(Int(animationFrame))")
+        session.seek(progress: totalFrames > 0 ? frame / totalFrames : 0)
     }
     
     private func setSpeed(_ speed: Double) {
         softHaptic()
         print("⚡ ContentView: Setting speed to \(speed)x")
-        animationSpeed = speed
+        session.speed = speed
         document.updatePlaybackSpeed(speed)
         if hasAnimation {
             animationView.animationSpeed = speed
@@ -1469,7 +1394,7 @@ struct ContentView: View {
     private func setLoopMode(_ mode: PlayerLoopMode) {
         softHaptic()
         print("🔄 ContentView: Setting loop mode to \(mode)")
-        loopMode = mode
+        session.loopMode = mode
         if hasAnimation {
             animationView.loopMode = mode
             print("🔄 ContentView: Loop mode applied to animationView")
@@ -1500,26 +1425,6 @@ struct ContentView: View {
         }
     }
     
-    private func startProgressTracking() {
-        print("📊 ContentView: Starting progress tracking")
-        progressTimer?.invalidate()
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            Task { @MainActor in
-                if hasAnimation {
-                    let animationFrame = animationView.currentFrame
-                    let userFrame = animationFrameToUserFrame(animationFrame)
-                    
-                    if userFrame != currentFrame {
-                        currentFrame = max(0, min(totalFrames, userFrame))
-
-                        if Int(userFrame) % 30 == 0 {
-                            print("📊 Progress: Animation frame \(Int(animationFrame)) → User frame \(Int(userFrame))/\(Int(totalFrames))")
-                        }
-                    }
-                }
-            }
-        }
-    }
     
     // MARK: - Test Helper
     private func loadFirstSampleAnimation() {
@@ -1540,7 +1445,7 @@ struct ContentView: View {
             // Try with exact name first
             if let url = Bundle.main.url(forResource: animationName, withExtension: nil) {
                 print("🧪 ContentView: Found sample animation: \(animationName)")
-                try? loadAnimation(from: url)
+                Task { try? await loadAnimation(from: url) }
                 return
             }
             
@@ -1548,7 +1453,7 @@ struct ContentView: View {
             let nameWithoutExtension = animationName.replacingOccurrences(of: ".json", with: "")
             if let url = Bundle.main.url(forResource: nameWithoutExtension, withExtension: "json") {
                 print("🧪 ContentView: Found sample animation: \(nameWithoutExtension).json")
-                try? loadAnimation(from: url)
+                Task { try? await loadAnimation(from: url) }
                 return
             }
         }
@@ -1556,14 +1461,6 @@ struct ContentView: View {
         print("🧪 ContentView: No sample animations found in bundle")
     }
     
-    // MARK: - Frame Mapping Helper Functions
-    private func userFrameToAnimationFrame(_ userFrame: Double) -> Double {
-        return animationStartFrame + userFrame
-    }
-    
-    private func animationFrameToUserFrame(_ animationFrame: Double) -> Double {
-        return animationFrame - animationStartFrame
-    }
 }
 
 private struct ImportReportSheet: View {

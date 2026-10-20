@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct BundledAnimationsView: View {
-    let onSelectAnimation: (URL) throws -> Void
+    let onSelectAnimation: (URL) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var loadingAnimation: String?
@@ -56,10 +56,11 @@ struct BundledAnimationsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("Close") { dismiss() }.disabled(loadingAnimation != nil)
                 }
             }
         }
+        .interactiveDismissDisabled(loadingAnimation != nil)
         .alert("Could Not Load Sample", isPresented: $showingAlert) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -68,17 +69,19 @@ struct BundledAnimationsView: View {
     }
 
     private func loadBundledAnimation(named name: String) {
+        guard loadingAnimation == nil else { return }
         loadingAnimation = name
-
-        do {
-            let url = try bundledURL(named: name)
-            try onSelectAnimation(url)
-            loadingAnimation = nil
-            dismiss()
-        } catch {
-            loadingAnimation = nil
-            alertMessage = error.localizedDescription
-            showingAlert = true
+        Task { @MainActor in
+            do {
+                let url = try bundledURL(named: name)
+                try await onSelectAnimation(url)
+                loadingAnimation = nil
+                dismiss()
+            } catch {
+                loadingAnimation = nil
+                alertMessage = error.localizedDescription
+                showingAlert = true
+            }
         }
     }
 

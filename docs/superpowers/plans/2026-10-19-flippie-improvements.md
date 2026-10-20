@@ -123,14 +123,16 @@
 
 **Interfaces:** `@MainActor PlaybackSession` владеет одним `VersionedLottiePlayerView`; методы `load(data: Data, runtime: LottieRuntimeVersion, baseURL: URL?) async throws`, `play()`, `pause()`, `seek(progress: Double)`, `close()`; публикует playback state, progress и readiness. `SheetRoute` представляет один активный sheet.
 
-- [ ] Добавить регрессии `testFailedRuntimeSwitchPreservesFrameAndPlayback`, `testPlayOncePublishesStoppedState`, `testFrameStepPausesPlayback`, `testOpeningSheetKeepsPreviewIdentity`.
-- [ ] Перенести player state/timer из ContentView в session; сохранить одну и ту же UIView при открытии Edit/Export. Заменять engine только после успешной подготовки кандидата.
-- [ ] Централизовать презентацию sheets; переход Playback Settings → Renderer Test выполнять после dismiss, без конкурирующих presentation bool.
-- [ ] Добавить completion события плеера и политику background/foreground; остановить polling там, где воспроизведение завершено или неактивно.
-- [ ] Прогнать регрессии и цикл Import → Play → Edit → dismiss → Export → dismiss → смена runtime → Back для native и blur fixtures; сохранить видео UI-прогона для проверки вспышек.
-- [ ] Коммит этапа после прохождения проверок.
+- [x] Добавить регрессии `testFailedRuntimeSwitchPreservesFrameAndPlayback`, `testPlayOncePublishesStoppedState`, `testFrameStepPausesPlayback`, `testOpeningSheetKeepsPreviewIdentity`.
+- [x] Перенести player state/timer из ContentView в session; сохранить одну и ту же UIView при открытии Edit/Export. Заменять engine только после успешной подготовки кандидата.
+- [x] Централизовать презентацию sheets; переход Playback Settings → Renderer Test выполнять после dismiss, без конкурирующих presentation bool.
+- [x] Добавить completion события плеера и политику background/foreground; остановить polling там, где воспроизведение завершено или неактивно.
+- [x] Прогнать регрессии и цикл Import → Play → Edit → dismiss → Export → dismiss → смена runtime → Back для native и blur fixtures; сохранить видео UI-прогона для проверки вспышек.
+- [x] Коммит этапа после прохождения проверок.
 
 **Готовность:** открытие sheets не пересоздаёт preview, failed switch сохраняет видимый кадр, Play Once корректно меняет кнопку обратно на Play.
+
+Проверки и ограничения автоматического UI-прогона: [отчёт этапа 3](2026-10-20-stage-3-verification.md).
 
 ### Этап 4 — согласованное воспроизведение native/web (P1)
 

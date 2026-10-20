@@ -38,7 +38,7 @@ struct AnimationFrameRange {
 
 @MainActor
 final class VersionedLottiePlayerView: UIView {
-    private enum Engine {
+    fileprivate enum Engine {
         case v300(Lottie300.AnimationView)
         case v350(Lottie350.LottieAnimationView)
         case v400(Lottie400.LottieAnimationView)
@@ -47,6 +47,20 @@ final class VersionedLottiePlayerView: UIView {
     }
 
     private var engine: Engine?
+    private var playbackGeneration = UUID()
+
+    struct PreparedAnimation {
+        fileprivate let engine: Engine
+        let range: AnimationFrameRange
+        let runtime: LottieRuntimeVersion
+        let renderingMode: LottieRenderingMode
+
+        @MainActor func waitUntilReady() async throws {
+            if case .web(let view) = engine {
+                try await view.waitForPlaybackReadiness()
+            }
+        }
+    }
     private(set) var runtime: LottieRuntimeVersion = .embedded
     private(set) var renderingMode: LottieRenderingMode = .automatic
 
@@ -74,6 +88,17 @@ final class VersionedLottiePlayerView: UIView {
         renderingMode: LottieRenderingMode = .automatic,
         baseURL: URL? = nil
     ) throws -> AnimationFrameRange {
+        let candidate = try prepare(data: data, runtime: runtime, renderingMode: renderingMode, baseURL: baseURL)
+        install(candidate)
+        return candidate.range
+    }
+
+    func prepare(
+        data: Data,
+        runtime: LottieRuntimeVersion,
+        renderingMode: LottieRenderingMode = .automatic,
+        baseURL: URL? = nil
+    ) throws -> PreparedAnimation {
         try LottieImportService.validate(data)
         let nextEngine: Engine
         let range: AnimationFrameRange
@@ -132,13 +157,17 @@ final class VersionedLottiePlayerView: UIView {
           }
         }
 
+        return PreparedAnimation(engine: nextEngine, range: range, runtime: runtime, renderingMode: renderingMode)
+    }
+
+    func install(_ candidate: PreparedAnimation) {
         stop()
         engineView?.removeFromSuperview()
-        engine = nextEngine
-        self.runtime = runtime
-        self.renderingMode = renderingMode
+        engine = candidate.engine
+        runtime = candidate.runtime
+        renderingMode = candidate.renderingMode
 
-        guard let view = engineView else { return range }
+        guard let view = engineView else { return }
         view.translatesAutoresizingMaskIntoConstraints = false
         view.contentMode = .scaleAspectFit
         addSubview(view)
@@ -151,16 +180,15 @@ final class VersionedLottiePlayerView: UIView {
 
         applyLoopMode()
         applySpeed()
-        return range
     }
 
     var currentProgress: Double {
         get {
             switch engine {
-            case .v300(let view): Double(view.currentProgress)
-            case .v350(let view): Double(view.currentProgress)
-            case .v400(let view): Double(view.currentProgress)
-            case .v461(let view): Double(view.currentProgress)
+            case .v300(let view): Double(view.realtimeAnimationProgress)
+            case .v350(let view): Double(view.realtimeAnimationProgress)
+            case .v400(let view): Double(view.realtimeAnimationProgress)
+            case .v461(let view): Double(view.realtimeAnimationProgress)
             case .web(let view): view.currentProgress
             case nil: 0
             }
@@ -200,18 +228,25 @@ final class VersionedLottiePlayerView: UIView {
         }
     }
 
-    func play() {
+    func play(completion: ((Bool) -> Void)? = nil) {
+        let generation = UUID()
+        playbackGeneration = generation
+        let finished: (Bool) -> Void = { [weak self] success in
+            guard let self, self.playbackGeneration == generation else { return }
+            completion?(success)
+        }
         switch engine {
-        case .v300(let view): view.play()
-        case .v350(let view): view.play()
-        case .v400(let view): view.play()
-        case .v461(let view): view.play()
-        case .web(let view): view.play()
+        case .v300(let view): view.play(fromProgress: 0, toProgress: 1, completion: finished)
+        case .v350(let view): view.play(fromProgress: 0, toProgress: 1, completion: finished)
+        case .v400(let view): view.play(fromProgress: 0, toProgress: 1, completion: finished)
+        case .v461(let view): view.play(fromProgress: 0, toProgress: 1, completion: finished)
+        case .web(let view): view.play(completion: finished)
         case nil: break
         }
     }
 
     func pause() {
+        playbackGeneration = UUID()
         switch engine {
         case .v300(let view): view.pause()
         case .v350(let view): view.pause()
@@ -223,6 +258,7 @@ final class VersionedLottiePlayerView: UIView {
     }
 
     func stop() {
+        playbackGeneration = UUID()
         switch engine {
         case .v300(let view): view.stop()
         case .v350(let view): view.stop()
@@ -242,6 +278,12 @@ final class VersionedLottiePlayerView: UIView {
         case .web(let view): view
         case nil: nil
         }
+    }
+
+    func unload() {
+        stop()
+        engineView?.removeFromSuperview()
+        engine = nil
     }
 
     private func applySpeed() {

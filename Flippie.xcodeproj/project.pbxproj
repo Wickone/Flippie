@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8C0000000000000000000001 /* PlaybackSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C0000000000000000000002; };
+		8C0000000000000000000003 /* SheetRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C0000000000000000000004; };
+		8C0000000000000000000005 /* PlaybackSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C0000000000000000000006; };
 		8B0000000000000000000003 /* LottieAssetResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0000000000000000000004 /* LottieAssetResolver.swift */; };
 		8B0000000000000000000001 /* LottieImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0000000000000000000002 /* LottieImportTests.swift */; };
 		1A2B3C4D5E6F7G8H9I0J1K2L /* FlippieApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K2M /* FlippieApp.swift */; };
@@ -55,6 +58,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		8C0000000000000000000002 /* PlaybackSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSession.swift; sourceTree = "<group>"; };
+		8C0000000000000000000004 /* SheetRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetRoute.swift; sourceTree = "<group>"; };
+		8C0000000000000000000006 /* PlaybackSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackSessionTests.swift; sourceTree = "<group>"; };
 		8B0000000000000000000004 /* LottieAssetResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieAssetResolver.swift; sourceTree = "<group>"; };
 		8B0000000000000000000002 /* LottieImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieImportTests.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7G8H9I0J1K2A /* Flippie.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Flippie.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -188,6 +194,8 @@
 		1A2B3C4D5E6F7G8H9I0J1K42 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				8C0000000000000000000002 /* PlaybackSession.swift */,
+				8C0000000000000000000004 /* SheetRoute.swift */,
 					3C4D5E6F7G8H9I0J1K2L3M02 /* AnimationDocument.swift */,
 					3C4D5E6F7G8H9I0J1K2L3M04 /* LottieRuntimeVersion.swift */,
 					1A2B3C4D5E6F7G8H9I0J1K41 /* LottieAnalyzer.swift */,
@@ -199,6 +207,7 @@
 		2B3C4D5E6F7G8H9I0J1K2L09 /* FlippieTests */ = {
 			isa = PBXGroup;
 			children = (
+				8C0000000000000000000006 /* PlaybackSessionTests.swift */,
 				2B3C4D5E6F7G8H9I0J1K2L03 /* FlippieSmokeTests.swift */,
 				8B0000000000000000000002 /* LottieImportTests.swift */,
 				5E6F7G8H9I0J1K2L3M4N5O12 /* test_star.json */,
@@ -364,6 +373,8 @@
 				5E6F7G8H9I0J1K2L3M4N5O01 /* AnimationExporter.swift in Sources */,
 				5E6F7G8H9I0J1K2L3M4N5O04 /* LottieImportService.swift in Sources */,
 				8B0000000000000000000003 /* LottieAssetResolver.swift in Sources */,
+				8C0000000000000000000001 /* PlaybackSession.swift in Sources */,
+				8C0000000000000000000003 /* SheetRoute.swift in Sources */,
 				5E6F7G8H9I0J1K2L3M4N5O06 /* LottieWebPlayerView.swift in Sources */,
 					1A2B3C4D5E6F7G8H9I0J1K40 /* LottieAnalyzer.swift in Sources */,
 					1A2B3C4D5E6F7G8H9I0J1K45 /* ContentViewSupport.swift in Sources */,
@@ -380,6 +391,7 @@
 			files = (
 				2B3C4D5E6F7G8H9I0J1K2L02 /* FlippieSmokeTests.swift in Sources */,
 				8B0000000000000000000001 /* LottieImportTests.swift in Sources */,
+				8C0000000000000000000005 /* PlaybackSessionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

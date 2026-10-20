@@ -1,10 +1,35 @@
 import SwiftUI
 
+@MainActor
+final class AnimationEditApplication: ObservableObject {
+    @Published private(set) var isApplying = false
+
+    func apply(document: AnimationDocument, draft: () -> AnimationEdits,
+               setPlaybackSpeed: (Double) -> Void, prepare: () async throws -> Void) async throws -> Bool {
+        guard !isApplying else { return false }
+        isApplying = true
+        defer { isApplying = false }
+        let previousEdits = document.edits
+        let edits = draft()
+        do {
+            try document.apply(edits)
+            try await prepare()
+            setPlaybackSpeed(edits.playbackSpeed)
+            return true
+        } catch {
+            try? document.apply(previousEdits)
+            throw error
+        }
+    }
+}
+
 struct EditPropertiesSheet: View {
     @ObservedObject var document: AnimationDocument
     @Binding var animationSpeed: Double
-    @Binding var totalFrames: Double
-    let onDocumentChanged: () throws -> Void
+    let totalFrames: Double
+    let onDocumentChanged: () async throws -> Void
+    @StateObject private var application = AnimationEditApplication()
+    private var isApplying: Bool { application.isApplying }
     
     @StateObject private var analyzer = LottieAnalyzer()
     @Environment(\.dismiss) private var dismiss
@@ -263,16 +288,18 @@ struct EditPropertiesSheet: View {
                 }
                 .padding()
             }
+            .disabled(isApplying)
             .navigationTitle("Edit Properties")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
-                leading: Button("Cancel") { dismiss() },
+                leading: Button("Cancel") { dismiss() }.disabled(isApplying),
                 trailing: Button("Apply") {
                     applyChanges()
                 }
-                .disabled(!hasChanges)
+                .disabled(!hasChanges || isApplying)
             )
         }
+        .interactiveDismissDisabled(isApplying)
         .onAppear {
             loadInitialValues()
             analyzeAnimation()
@@ -380,25 +407,29 @@ struct EditPropertiesSheet: View {
     }
     
     private func applyChanges() {
-        let previousEdits = document.edits
-        let newEdits = AnimationEdits(
-            colorReplacements: colorReplacements,
-            backgroundColor: hasBackgroundColor ? RGBAColor(backgroundColor) : nil,
-            playbackSpeed: tempSpeed
-        )
-
-        do {
-            try document.apply(newEdits)
-            try onDocumentChanged()
-            animationSpeed = tempSpeed
-            totalFrames = tempFrames
-            hasChanges = false
-            dismiss()
-        } catch {
-            try? document.apply(previousEdits)
-            try? onDocumentChanged()
-            applyErrorMessage = error.localizedDescription
-            showingApplyError = true
+        guard !isApplying else { return }
+        Task { @MainActor in
+            do {
+                let applied = try await application.apply(
+                    document: document,
+                    draft: {
+                        AnimationEdits(
+                            colorReplacements: colorReplacements,
+                            backgroundColor: hasBackgroundColor ? RGBAColor(backgroundColor) : nil,
+                            playbackSpeed: tempSpeed
+                        )
+                    },
+                    setPlaybackSpeed: { animationSpeed = $0 },
+                    prepare: onDocumentChanged
+                )
+                if applied {
+                    hasChanges = false
+                    dismiss()
+                }
+            } catch {
+                applyErrorMessage = error.localizedDescription
+                showingApplyError = true
+            }
         }
     }
 

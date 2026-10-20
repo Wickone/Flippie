@@ -23,6 +23,9 @@ final class LottieWebPlayerView: UIView, WKNavigationDelegate, WKScriptMessageHa
     private let webView: WKWebView
     private let messageProxy: WeakScriptMessageHandler
     private var isReady = false
+    private var preparationError: Error?
+    private var playbackCompletion: ((Bool) -> Void)?
+    private var playbackID: String?
     private var pendingScripts: [String] = []
     private var readyContinuations: [CheckedContinuation<Void, Error>] = []
     private var snapshotContinuations: [
@@ -91,6 +94,7 @@ final class LottieWebPlayerView: UIView, WKNavigationDelegate, WKScriptMessageHa
         let duration = frameRate > 0 ? (endFrame - startFrame) / frameRate : 0
 
         isReady = false
+        preparationError = nil
         pendingScripts.removeAll()
         currentProgress = 0
         currentFrame = 0
@@ -108,15 +112,22 @@ final class LottieWebPlayerView: UIView, WKNavigationDelegate, WKScriptMessageHa
         )
     }
 
-    func play() {
-        runWhenReady("window.flippiePlayer.play();")
+    func play(completion: ((Bool) -> Void)? = nil) {
+        playbackCompletion = completion
+        let id = UUID().uuidString
+        playbackID = id
+        runWhenReady("window.flippiePlaybackID='\(id)';window.flippiePlayer.play();")
     }
 
     func pause() {
+        playbackCompletion = nil
+        playbackID = nil
         runWhenReady("window.flippiePlayer.pause();")
     }
 
     func stop() {
+        playbackCompletion = nil
+        playbackID = nil
         currentProgress = 0
         currentFrame = 0
         runWhenReady("window.flippiePlayer.goToAndStop(0, true);")
@@ -202,10 +213,18 @@ final class LottieWebPlayerView: UIView, WKNavigationDelegate, WKScriptMessageHa
         case "frame":
             currentFrame = Self.number(body["frame"])
             currentProgress = totalFrames > 0 ? currentFrame / totalFrames : 0
+        case "complete":
+            guard let playbackID, body["playbackID"] as? String == playbackID else { return }
+            currentProgress = 1
+            currentFrame = totalFrames
+            let completion = playbackCompletion
+            playbackCompletion = nil
+            completion?(true)
         case "error":
             let error = LottieWebPlayerError.loadFailed(
                 body["message"] as? String ?? "Unknown JavaScript error."
             )
+            preparationError = error
             let continuations = readyContinuations
             readyContinuations.removeAll()
             continuations.forEach { $0.resume(throwing: error) }
@@ -257,6 +276,32 @@ final class LottieWebPlayerView: UIView, WKNavigationDelegate, WKScriptMessageHa
         try await withCheckedThrowingContinuation { continuation in
             readyContinuations.append(continuation)
         }
+    }
+
+    // The visible engine is not replaced until this candidate is ready.
+    func waitForPlaybackReadiness() async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        while !isReady {
+            try Task.checkCancellation()
+            if let preparationError { throw preparationError }
+            guard ContinuousClock.now < deadline else {
+                throw LottieWebPlayerError.loadFailed("Renderer preparation timed out.")
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try Task.checkCancellation()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        preparationError = error
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        preparationError = error
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        preparationError = LottieWebPlayerError.loadFailed("Web renderer process terminated.")
     }
 
     private static func html(
@@ -423,6 +468,9 @@ final class LottieWebPlayerView: UIView, WKNavigationDelegate, WKScriptMessageHa
                   type: 'error',
                   message: 'Animation data failed to load.'
                 });
+              });
+              player.addEventListener('complete', function() {
+                window.webkit.messageHandlers.flippie.postMessage({type: 'complete', playbackID: window.flippiePlaybackID});
               });
             } catch (error) {
               window.webkit.messageHandlers.flippie.postMessage({
