@@ -381,7 +381,7 @@ struct MainExportView: View {
             _ = try player.load(
                 data: animationDataForExport(),
                 runtime: document.selectedRuntime,
-                baseURL: document.sourceURL?.deletingLastPathComponent()
+                baseURL: document.assetBaseURL
             )
             player.contentMode = .scaleAspectFit
             player.loopMode = .loop
@@ -414,7 +414,7 @@ struct MainExportView: View {
                     animationData: try animationDataForExport(),
                     runtime: document.selectedRuntime,
                     plan: makePlan(),
-                    assetBaseURL: document.sourceURL?.deletingLastPathComponent(),
+                    assetBaseURL: document.assetBaseURL,
                     preferredFileName: document.displayName
                 )
                 let url = try await AnimationExporter().export(request: request, phase: {

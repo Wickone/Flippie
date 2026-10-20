@@ -5,7 +5,7 @@ import Lottie350
 import Lottie400
 import Lottie461
 
-enum PlayerLoopMode: CaseIterable, Hashable {
+enum PlayerLoopMode: String, CaseIterable, Hashable, Codable {
     case playOnce
     case loop
     case autoReverse

@@ -9,15 +9,46 @@ final class AnimationEditApplication: ObservableObject {
         guard !isApplying else { return false }
         isApplying = true
         defer { isApplying = false }
-        let previousEdits = document.edits
+        let id = document.projectID
+        let checkpoint = document.beginApplyingEdits()
+        defer { document.endApplyingEdits(checkpoint) }
         let edits = draft()
         do {
             try document.apply(edits)
             try await prepare()
+            guard document.projectID == id else { throw CancellationError() }
             setPlaybackSpeed(edits.playbackSpeed)
             return true
         } catch {
-            try? document.apply(previousEdits)
+            if document.projectID == id {
+                document.restore(checkpoint)
+                setPlaybackSpeed(document.edits.playbackSpeed)
+                try? await prepare()
+            }
+            throw error
+        }
+    }
+
+    func history(document: AnimationDocument, redo: Bool, setPlaybackSpeed: (Double) -> Void,
+                 prepare: () async throws -> Void) async throws -> Bool {
+        guard !isApplying else { return false }
+        isApplying = true; defer { isApplying = false }
+        let id = document.projectID
+        let checkpoint = document.beginApplyingEdits()
+        defer { document.endApplyingEdits(checkpoint) }
+        do {
+            let changed = try redo ? document.redo() : document.undo()
+            guard changed else { return false }
+            try await prepare()
+            guard document.projectID == id else { throw CancellationError() }
+            setPlaybackSpeed(document.edits.playbackSpeed)
+            return true
+        } catch {
+            if document.projectID == id {
+                document.restore(checkpoint)
+                setPlaybackSpeed(document.edits.playbackSpeed)
+                try? await prepare()
+            }
             throw error
         }
     }
@@ -28,8 +59,10 @@ struct EditPropertiesSheet: View {
     @Binding var animationSpeed: Double
     let totalFrames: Double
     let onDocumentChanged: () async throws -> Void
+    var onSaveProject: (() async throws -> Void)? = nil
     @StateObject private var application = AnimationEditApplication()
-    private var isApplying: Bool { application.isApplying }
+    @State private var isSaving = false
+    private var isApplying: Bool { application.isApplying || isSaving }
     
     @StateObject private var analyzer = LottieAnalyzer()
     @Environment(\.dismiss) private var dismiss
@@ -39,10 +72,16 @@ struct EditPropertiesSheet: View {
     @State private var tempFrames: Double = 100
     @State private var backgroundColor: Color = .clear
     @State private var hasBackgroundColor = false
-    @State private var hasChanges = false
     @State private var colorReplacements: [RGBAColor: RGBAColor] = [:]
     @State private var showingApplyError = false
     @State private var applyErrorMessage = ""
+    @State private var errorTitle = "Could Not Apply Changes"
+    private var hasChanges: Bool { draft != document.edits }
+    private var draft: AnimationEdits {
+        AnimationEdits(colorReplacements: colorReplacements,
+            backgroundColor: hasBackgroundColor ? RGBAColor(backgroundColor) : nil,
+            playbackSpeed: tempSpeed)
+    }
     
     var body: some View {
         NavigationView {
@@ -70,9 +109,6 @@ struct EditPropertiesSheet: View {
                             }
                             
                             Slider(value: $tempSpeed, in: 0.1...3.0, step: 0.1)
-                            .onChange(of: tempSpeed) { _, _ in
-                                hasChanges = true
-                            }
                         }
                         
                         // Frame Count (Read-only for now)
@@ -126,17 +162,14 @@ struct EditPropertiesSheet: View {
                             
                             Spacer()
                             
-                            ColorPicker("", selection: $backgroundColor)
+                            ColorPicker("", selection: Binding(get: { backgroundColor }, set: {
+                                backgroundColor = $0; hasBackgroundColor = true
+                            }))
                                 .labelsHidden()
-                                .onChange(of: backgroundColor) { _, _ in
-                                    hasBackgroundColor = true
-                                    hasChanges = true
-                                }
                         }
                         
                         Button("Reset to Transparent") {
                             hasBackgroundColor = false
-                            hasChanges = true
                         }
                         .font(.caption)
                         .foregroundColor(.blue)
@@ -200,7 +233,6 @@ struct EditPropertiesSheet: View {
                                             get: { displayColor.swiftUIColor },
                                             set: { newColor in
                                                 colorReplacements[color] = RGBAColor(newColor)
-                                                hasChanges = true
                                             }
                                         ))
                                         .labelsHidden()
@@ -292,11 +324,17 @@ struct EditPropertiesSheet: View {
             .navigationTitle("Edit Properties")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(
-                leading: Button("Cancel") { dismiss() }.disabled(isApplying),
-                trailing: Button("Apply") {
-                    applyChanges()
+                leading: Button("Cancel") { loadInitialValues(); dismiss() }.disabled(isApplying),
+                trailing: HStack(spacing: 12) {
+                    Button { changeHistory(redo: false) } label: { Image(systemName: "arrow.uturn.backward") }
+                        .accessibilityLabel("Undo applied change")
+                        .disabled(!document.canUndo || hasChanges || isApplying)
+                    Button { changeHistory(redo: true) } label: { Image(systemName: "arrow.uturn.forward") }
+                        .accessibilityLabel("Redo applied change")
+                        .disabled(!document.canRedo || hasChanges || isApplying)
+                    Button("Apply") { applyChanges() }
+                        .disabled(!hasChanges || isApplying)
                 }
-                .disabled(!hasChanges || isApplying)
             )
         }
         .interactiveDismissDisabled(isApplying)
@@ -304,7 +342,7 @@ struct EditPropertiesSheet: View {
             loadInitialValues()
             analyzeAnimation()
         }
-        .alert("Could Not Apply Changes", isPresented: $showingApplyError) {
+        .alert(errorTitle, isPresented: $showingApplyError) {
             Button("OK") {}
         } message: {
             Text(applyErrorMessage)
@@ -315,6 +353,27 @@ struct EditPropertiesSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(document.displayName)
                 .font(.headline)
+            if let onSaveProject {
+                HStack {
+                    Text(document.hasUnsavedChanges ? "Applied changes not saved" : "Project saved on this device")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    if document.hasUnsavedChanges {
+                        Button("Save applied changes") {
+                            isSaving = true
+                            Task { @MainActor in
+                                defer { isSaving = false }
+                                do { try await onSaveProject() }
+                                catch {
+                                    errorTitle = "Could Not Save Project"
+                                    applyErrorMessage = error.localizedDescription; showingApplyError = true
+                                }
+                            }
+                        }
+                        .disabled(isApplying || hasChanges)
+                    }
+                }
+            }
 
             if let metadata = document.metadata {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 8) {
@@ -394,7 +453,6 @@ struct EditPropertiesSheet: View {
         backgroundColor = document.edits.backgroundColor?.swiftUIColor ?? .clear
         hasBackgroundColor = document.edits.backgroundColor != nil
         colorReplacements = document.edits.colorReplacements
-        hasChanges = false
     }
     
     private func analyzeAnimation() {
@@ -406,6 +464,21 @@ struct EditPropertiesSheet: View {
         analyzer.analyzeAnimation(data: data)
     }
     
+    private func changeHistory(redo: Bool) {
+        guard !isApplying, !hasChanges else { return }
+        Task { @MainActor in
+            do {
+                if try await application.history(document: document, redo: redo,
+                    setPlaybackSpeed: { animationSpeed = $0 }, prepare: onDocumentChanged) {
+                    loadInitialValues()
+                }
+            } catch {
+                errorTitle = redo ? "Could Not Redo Change" : "Could Not Undo Change"
+                applyErrorMessage = error.localizedDescription; showingApplyError = true
+            }
+        }
+    }
+
     private func applyChanges() {
         guard !isApplying else { return }
         Task { @MainActor in
@@ -423,10 +496,10 @@ struct EditPropertiesSheet: View {
                     prepare: onDocumentChanged
                 )
                 if applied {
-                    hasChanges = false
                     dismiss()
                 }
             } catch {
+                errorTitle = "Could Not Apply Changes"
                 applyErrorMessage = error.localizedDescription
                 showingApplyError = true
             }

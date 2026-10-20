@@ -156,7 +156,7 @@ struct LottieFeatureSummary: Equatable {
     }
 }
 
-struct AnimationEdits: Equatable {
+struct AnimationEdits: Equatable, Codable {
     var colorReplacements: [RGBAColor: RGBAColor] = [:]
     var backgroundColor: RGBAColor?
     var playbackSpeed: Double = 1
@@ -548,19 +548,110 @@ private enum LottieFeatureScanner {
 
 @MainActor
 final class AnimationDocument: ObservableObject {
+    private(set) var projectID = UUID()
+    private var revision = 0
+    private var savedRevision = -1
+    private var projectName: String?
+    private var projectAssets: URL?
+    private var sourceLease: ProjectSourceLease?
+    private var undoStack: [AnimationEdits] = []
+    private var redoStack: [AnimationEdits] = []
+    private var editTransaction: UUID?
+    var isApplyingEdits: Bool { editTransaction != nil }
+    var assetBaseURL: URL? { projectAssets ?? sourceURL?.deletingLastPathComponent() }
+    @Published private(set) var playbackLoopMode: PlayerLoopMode = .loop
+    var hasUnsavedChanges: Bool { revision != savedRevision }
+    var canUndo: Bool { !undoStack.isEmpty }
+    var canRedo: Bool { !redoStack.isEmpty }
+    func projectSnapshot(allowPendingEdits: Bool = false) throws -> FlippieProject {
+        guard allowPendingEdits || !isApplyingEdits else { throw ProjectStoreError.editInProgress }
+        guard let originalData else { throw AnimationDocumentError.invalidRootObject }
+        var project = FlippieProject(id: projectID, revision: revision, displayName: displayName,
+            originalData: originalData, assetBaseURL: assetBaseURL,
+            edits: edits, runtime: selectedRuntime, loopMode: playbackLoopMode)
+        project.sourceLease = sourceLease
+        return project
+    }
+    func load(project: FlippieProject) throws {
+        try project.validate()
+        try load(data: project.originalData, sourceURL: project.originalURL)
+        projectID = project.id; projectName = project.displayName; projectAssets = project.assetBaseURL
+        sourceLease = project.sourceLease
+        edits = project.edits; selectedRuntime = project.runtime; playbackLoopMode = project.loopMode
+        revision = project.revision; savedRevision = revision
+    }
+    func didSave(_ snapshot: FlippieProject, at url: URL) {
+        guard snapshot.id == projectID else { return }
+        savedRevision = max(savedRevision, snapshot.revision)
+        projectName = snapshot.displayName
+        projectAssets = url.appendingPathComponent(snapshot.assetDirectory)
+        sourceURL = url.appendingPathComponent(snapshot.originalPath)
+        sourceLease = snapshot.sourceLease ?? ProjectSourceLease(source: url.appendingPathComponent(snapshot.originalPath).deletingLastPathComponent())
+    }
+    func relocateProjectFiles(from root: URL, to backup: URL) {
+        let prefix = root.standardizedFileURL.path + "/"
+        if let base = assetBaseURL, base.standardizedFileURL.path.hasPrefix(prefix) {
+            projectAssets = backup.appendingPathComponent(String(base.standardizedFileURL.path.dropFirst(prefix.count)))
+            if let original = sourceURL, original.standardizedFileURL.path.hasPrefix(prefix) {
+                sourceURL = backup.appendingPathComponent(String(original.standardizedFileURL.path.dropFirst(prefix.count)))
+                sourceLease = sourceURL.map { ProjectSourceLease(source: $0.deletingLastPathComponent()) }
+            }
+            savedRevision = -1
+        }
+    }
+    func updateLoopMode(_ mode: PlayerLoopMode) {
+        guard mode != playbackLoopMode else { return }
+        revision += 1; playbackLoopMode = mode
+    }
+    @discardableResult func undo() throws -> Bool {
+        guard let previous = undoStack.last else { return false }
+        try previous.validate()
+        redoStack.append(edits); undoStack.removeLast(); revision += 1; edits = previous
+        return true
+    }
+    @discardableResult func redo() throws -> Bool {
+        guard let next = redoStack.last else { return false }
+        try next.validate()
+        undoStack.append(edits); redoStack.removeLast(); revision += 1; edits = next
+        return true
+    }
+
+    struct EditCheckpoint {
+        fileprivate let projectID: UUID
+        fileprivate let transaction: UUID
+        fileprivate let edits: AnimationEdits
+        fileprivate let undo: [AnimationEdits]
+        fileprivate let redo: [AnimationEdits]
+    }
+    func beginApplyingEdits() -> EditCheckpoint {
+        let transaction = UUID(); editTransaction = transaction
+        return EditCheckpoint(projectID: projectID, transaction: transaction,
+                              edits: edits, undo: undoStack, redo: redoStack)
+    }
+    func endApplyingEdits(_ checkpoint: EditCheckpoint) {
+        if editTransaction == checkpoint.transaction { editTransaction = nil }
+    }
+    func restore(_ checkpoint: EditCheckpoint) {
+        guard checkpoint.projectID == projectID else { return }
+        undoStack = checkpoint.undo; redoStack = checkpoint.redo
+        revision += 1; edits = checkpoint.edits
+    }
+
     @Published private(set) var sourceURL: URL?
     @Published private(set) var originalData: Data?
     @Published private(set) var metadata: AnimationMetadata?
     @Published private(set) var diagnostics: [AnimationDiagnostic] = []
     @Published private(set) var edits = AnimationEdits()
-    @Published var selectedRuntime: LottieRuntimeVersion = .embedded
+    @Published var selectedRuntime: LottieRuntimeVersion = .embedded {
+        didSet { if selectedRuntime != oldValue { revision += 1 } }
+    }
 
     var isLoaded: Bool {
         originalData != nil && metadata != nil
     }
 
     var displayName: String {
-        sourceURL?.deletingPathExtension().lastPathComponent ?? "Untitled Animation"
+        projectName ?? sourceURL?.deletingPathExtension().lastPathComponent ?? "Untitled Animation"
     }
 
     var renderedData: Data? {
@@ -599,20 +690,23 @@ final class AnimationDocument: ObservableObject {
         diagnostics = Self.makeDiagnostics(from: root)
         edits = AnimationEdits()
         selectedRuntime = .embedded
+        projectID = UUID(); projectAssets = nil; projectName = nil; editTransaction = nil; sourceLease = nil
+        playbackLoopMode = .loop; undoStack = []; redoStack = []
+        revision = 0; savedRevision = -1
     }
 
     func updateColorReplacements(_ replacements: [Color: Color]) {
-        edits.colorReplacements = Dictionary(
-            uniqueKeysWithValues: replacements.map { (RGBAColor($0.key), RGBAColor($0.value)) }
-        )
+        var updated = edits
+        updated.colorReplacements = replacements.reduce(into: [:]) { $0[RGBAColor($1.key)] = RGBAColor($1.value) }
+        try? apply(updated)
     }
 
     func updateBackgroundColor(_ color: Color?) {
-        edits.backgroundColor = color.map(RGBAColor.init)
+        var updated = edits; updated.backgroundColor = color.map(RGBAColor.init); try? apply(updated)
     }
 
     func updatePlaybackSpeed(_ speed: Double) {
-        edits.playbackSpeed = speed
+        var updated = edits; updated.playbackSpeed = speed; try? apply(updated)
     }
 
     func selectRuntime(_ runtime: LottieRuntimeVersion) {
@@ -624,7 +718,12 @@ final class AnimationDocument: ObservableObject {
             throw AnimationDocumentError.invalidRootObject
         }
 
+        try newEdits.validate()
         _ = try Self.renderedData(from: originalData, edits: newEdits)
+        guard newEdits != edits else { return }
+        undoStack.append(edits)
+        if undoStack.count > 50 { undoStack.removeFirst() }
+        redoStack = []; revision += 1
         edits = newEdits
     }
 

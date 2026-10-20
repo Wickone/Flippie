@@ -9,6 +9,11 @@ struct ContentView: View {
     @StateObject private var document: AnimationDocument
     @StateObject private var session: PlaybackSession
     @StateObject private var sheets: SheetCoordinator
+    @StateObject private var persistence: ProjectPersistenceCoordinator
+    private let persistenceEnabled: Bool
+    @State private var didAttemptRestore = false
+    @State private var restoreTask: Task<Void, Never>?
+    @State private var canRecoverSavedProject = false
     @Environment(\.scenePhase) private var scenePhase
     @State private var showingFileImporter = false
     @State private var fileImportMode: FileImportMode = .animation
@@ -31,10 +36,13 @@ struct ContentView: View {
     @State private var nextControlAnimationTick = 0
     @State private var loadedTabSelection: LoadedActionTab = .preview
     
-    init(document: AnimationDocument? = nil, session: PlaybackSession? = nil, sheets: SheetCoordinator? = nil) {
+    init(document: AnimationDocument? = nil, session: PlaybackSession? = nil, sheets: SheetCoordinator? = nil,
+         persistence: ProjectPersistenceCoordinator? = nil) {
         _document = StateObject(wrappedValue: document ?? AnimationDocument())
         _session = StateObject(wrappedValue: session ?? PlaybackSession())
         _sheets = StateObject(wrappedValue: sheets ?? SheetCoordinator())
+        _persistence = StateObject(wrappedValue: persistence ?? ProjectPersistenceCoordinator())
+        persistenceEnabled = persistence != nil || (document == nil && session == nil)
     }
 
     private var animationView: VersionedLottiePlayerView { session.player }
@@ -944,6 +952,17 @@ struct ContentView: View {
         .background(emptyScreenBackground.ignoresSafeArea())
         .alert("Error", isPresented: $showingAlert) {
             Button("OK") { }
+            if canRecoverSavedProject {
+                Button("Keep damaged copy and start fresh") {
+                    Task { @MainActor in
+                        do {
+                            _ = try await persistence.recoverDamagedProject(document: document)
+                            canRecoverSavedProject = false
+                            if document.isLoaded { try await persistence.save(document) }
+                        } catch { showProjectSaveError(error) }
+                    }
+                }
+            }
         } message: {
             Text(alertMessage)
         }
@@ -961,14 +980,11 @@ struct ContentView: View {
         }
         .onAppear {
             session.setSceneActive(scenePhase == .active)
-            #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("-loadSampleOnLaunch"), !hasAnimation {
-                loadFirstSampleAnimation()
-            }
-            #endif
+            restoreLastProjectIfNeeded()
         }
         .onChange(of: scenePhase) { _, phase in
             session.setSceneActive(phase == .active)
+            if phase == .background { scheduleProjectSave(protectInBackground: true) }
         }
     }
 
@@ -1014,14 +1030,16 @@ struct ContentView: View {
                 totalFrames: totalFrames,
                 onDocumentChanged: {
                     try await reloadAnimationFromDocument()
-                }
+                    if persistenceEnabled { try await persistence.save(document, allowPendingEdits: true) }
+                },
+                onSaveProject: persistenceEnabled ? { try await persistence.save(document) } : nil
             )
         case .rendererComparison:
             if let data = document.renderedData {
                 RendererComparisonView(
                     data: data,
                     formatVersion: document.metadata?.formatVersion,
-                    baseURL: document.sourceURL?.deletingLastPathComponent()
+                    baseURL: document.assetBaseURL
                 )
             }
         case .playbackSettings:
@@ -1057,6 +1075,54 @@ struct ContentView: View {
     }
     
     // MARK: - Animation Loading
+    private func restoreLastProjectIfNeeded() {
+        guard !didAttemptRestore else { return }
+        didAttemptRestore = true
+        restoreTask = Task { @MainActor in
+            if persistenceEnabled {
+                do {
+                    if try await persistence.restore(document: document, session: session) {
+                        runtimeStatusMessage = "Restored saved project"
+                    }
+                } catch is CancellationError { return }
+                catch {
+                    canRecoverSavedProject = await persistence.canRecoverSavedProject()
+                    if Task.isCancelled { return }
+                    alertMessage = "Could not restore the saved project. It has not been changed.\n\n\(error.localizedDescription)"
+                    showingAlert = true
+                }
+            }
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-loadSampleOnLaunch"), !hasAnimation,
+               !Task.isCancelled { loadFirstSampleAnimation() }
+            #endif
+        }
+    }
+
+    private func scheduleProjectSave(protectInBackground: Bool = false) {
+        guard persistenceEnabled, document.isLoaded, !document.isApplyingEdits, !persistence.isRecovering else { return }
+        do {
+            let save = try persistence.enqueue(document)
+            let background = protectInBackground
+                ? UIApplication.shared.beginBackgroundTask(withName: "Save Flippie project", expirationHandler: { save.cancel() })
+                : UIBackgroundTaskIdentifier.invalid
+            Task { @MainActor in
+                defer { if background != .invalid { UIApplication.shared.endBackgroundTask(background) } }
+                do { try await save.value }
+                catch is CancellationError { }
+                catch { showProjectSaveError(error) }
+            }
+        } catch { showProjectSaveError(error) }
+    }
+
+    private func showProjectSaveError(_ error: Error) {
+        Task { @MainActor in
+            canRecoverSavedProject = await persistence.canRecoverSavedProject()
+            alertMessage = "Your changes are active but could not be saved. Retry Save applied changes in Edit.\n\n\(error.localizedDescription)"
+            showingAlert = true
+        }
+    }
+
     private func loadAnimation(from url: URL) async throws {
         statusMessage = "Loading animation..."
 
@@ -1066,6 +1132,7 @@ struct ContentView: View {
     }
 
     private func loadAnimation(data: Data, sourceURL: URL) async throws {
+        restoreTask?.cancel()
         try LottieImportService.validate(data)
 
         let candidate = AnimationDocument()
@@ -1082,16 +1149,21 @@ struct ContentView: View {
 
         try document.load(data: data, sourceURL: sourceURL)
         session.speed = document.edits.playbackSpeed
+        session.loopMode = document.playbackLoopMode
         runtimeStatusMessage = document.hasRenderingLimitations
             ? "Gaussian Blur rendered with lottie-web"
             : "Loaded with \(document.selectedRuntime.title)"
+        if persistenceEnabled {
+            do { try await persistence.save(document) }
+            catch { showProjectSaveError(error) }
+        }
     }
 
     private func reloadAnimationFromDocument() async throws {
         try await configurePlayer(
             with: document.renderedData,
             runtime: document.selectedRuntime,
-            baseURL: document.sourceURL?.deletingLastPathComponent(),
+            baseURL: document.assetBaseURL,
             preservingProgress: true
         )
         session.speed = document.edits.playbackSpeed
@@ -1129,9 +1201,10 @@ struct ContentView: View {
                 try await session.switchRuntime(
                     data: data,
                     runtime: runtime,
-                    baseURL: document.sourceURL?.deletingLastPathComponent()
+                    baseURL: document.assetBaseURL
                 )
                 document.selectRuntime(runtime)
+                scheduleProjectSave()
                 runtimeStatusMessage = document.hasRenderingLimitations
                     ? "Gaussian Blur uses the shared lottie-web renderer"
                     : "Rendered successfully with \(runtime.title)"
@@ -1383,6 +1456,7 @@ struct ContentView: View {
         print("⚡ ContentView: Setting speed to \(speed)x")
         session.speed = speed
         document.updatePlaybackSpeed(speed)
+        scheduleProjectSave()
         if hasAnimation {
             animationView.animationSpeed = speed
             print("⚡ ContentView: Speed applied to animationView")
@@ -1395,6 +1469,8 @@ struct ContentView: View {
         softHaptic()
         print("🔄 ContentView: Setting loop mode to \(mode)")
         session.loopMode = mode
+        document.updateLoopMode(mode)
+        scheduleProjectSave()
         if hasAnimation {
             animationView.loopMode = mode
             print("🔄 ContentView: Loop mode applied to animationView")
