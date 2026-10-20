@@ -47,6 +47,7 @@ final class VersionedLottiePlayerView: UIView {
     }
 
     private var engine: Engine?
+    private(set) var timeline = AnimationTimeline(startFrame: 0, endFrame: 0, frameRate: 0)
     private var playbackGeneration = UUID()
 
     struct PreparedAnimation {
@@ -59,6 +60,10 @@ final class VersionedLottiePlayerView: UIView {
             if case .web(let view) = engine {
                 try await view.waitForPlaybackReadiness()
             }
+        }
+
+        @MainActor func invalidate() {
+            if case .web(let view) = engine { view.invalidate() }
         }
     }
     private(set) var runtime: LottieRuntimeVersion = .embedded
@@ -162,10 +167,14 @@ final class VersionedLottiePlayerView: UIView {
 
     func install(_ candidate: PreparedAnimation) {
         stop()
+        if case .web(let old) = engine { old.invalidate() }
         engineView?.removeFromSuperview()
         engine = candidate.engine
         runtime = candidate.runtime
         renderingMode = candidate.renderingMode
+        let range = candidate.range
+        timeline = AnimationTimeline(startFrame: range.start, endFrame: range.end,
+            frameRate: range.duration > 0 ? (range.end - range.start) / range.duration : 0)
 
         guard let view = engineView else { return }
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -194,12 +203,13 @@ final class VersionedLottiePlayerView: UIView {
             }
         }
         set {
+            let progress = timeline.progress(forAbsoluteFrame: timeline.absoluteFrame(forProgress: newValue))
             switch engine {
-            case .v300(let view): view.currentProgress = CGFloat(newValue)
-            case .v350(let view): view.currentProgress = CGFloat(newValue)
-            case .v400(let view): view.currentProgress = CGFloat(newValue)
-            case .v461(let view): view.currentProgress = CGFloat(newValue)
-            case .web(let view): view.setProgress(newValue)
+            case .v300(let view): view.currentProgress = CGFloat(progress)
+            case .v350(let view): view.currentProgress = CGFloat(progress)
+            case .v400(let view): view.currentProgress = CGFloat(progress)
+            case .v461(let view): view.currentProgress = CGFloat(progress)
+            case .web(let view): view.setProgress(progress)
             case nil: break
             }
         }
@@ -208,21 +218,22 @@ final class VersionedLottiePlayerView: UIView {
     var currentFrame: Double {
         get {
             switch engine {
-            case .v300(let view): Double(view.currentFrame)
-            case .v350(let view): Double(view.currentFrame)
-            case .v400(let view): Double(view.currentFrame)
-            case .v461(let view): Double(view.currentFrame)
+            case .v300(let view): Double(view.realtimeAnimationFrame)
+            case .v350(let view): Double(view.realtimeAnimationFrame)
+            case .v400(let view): Double(view.realtimeAnimationFrame)
+            case .v461(let view): Double(view.realtimeAnimationFrame)
             case .web(let view): view.currentFrame
             case nil: 0
             }
         }
         set {
+            let frame = timeline.absoluteFrame(forProgress: timeline.progress(forAbsoluteFrame: newValue))
             switch engine {
-            case .v300(let view): view.currentFrame = CGFloat(newValue)
-            case .v350(let view): view.currentFrame = CGFloat(newValue)
-            case .v400(let view): view.currentFrame = CGFloat(newValue)
-            case .v461(let view): view.currentFrame = CGFloat(newValue)
-            case .web(let view): view.setFrame(newValue)
+            case .v300(let view): view.currentFrame = CGFloat(frame)
+            case .v350(let view): view.currentFrame = CGFloat(frame)
+            case .v400(let view): view.currentFrame = CGFloat(frame)
+            case .v461(let view): view.currentFrame = CGFloat(frame)
+            case .web(let view): view.setFrame(frame)
             case nil: break
             }
         }
@@ -267,6 +278,7 @@ final class VersionedLottiePlayerView: UIView {
         case .web(let view): view.stop()
         case nil: break
         }
+        currentFrame = timeline.startFrame
     }
 
     private var engineView: UIView? {
@@ -282,8 +294,10 @@ final class VersionedLottiePlayerView: UIView {
 
     func unload() {
         stop()
+        if case .web(let view) = engine { view.invalidate() }
         engineView?.removeFromSuperview()
         engine = nil
+        timeline = AnimationTimeline(startFrame: 0, endFrame: 0, frameRate: 0)
     }
 
     private func applySpeed() {
@@ -335,7 +349,7 @@ final class VersionedLottiePlayerView: UIView {
         if case .web(let view) = engine {
             try await view.prepareFrame(progress: progress)
         } else {
-            currentProgress = progress
+            currentFrame = timeline.renderableFrame(forProgress: progress)
         }
     }
 

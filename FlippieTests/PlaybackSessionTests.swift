@@ -189,14 +189,18 @@ final class PlaybackSessionTests: XCTestCase {
         for route in [SheetRoute.edit, .export, .playbackSettings] {
             print("MODAL CYCLE \(blur ? "web" : "native"): \(route.id)")
             sheets.present(route)
-            try await Task.sleep(for: .milliseconds(700))
+            let presented = await eventually {
+                host.presentedViewController != nil && host.presentedViewController?.isBeingPresented != true
+            }
+            XCTAssertTrue(presented)
             XCTAssertNotNil(host.presentedViewController)
             XCTAssertTrue(session.player === preview)
             XCTAssertTrue(session.player.subviews.first === engine)
             XCTAssertNotNil(preview.window, "Sheet must keep the live preview attached")
             XCTAssertTrue(session.isPlaying)
             sheets.dismiss()
-            try await Task.sleep(for: .milliseconds(700))
+            let dismissed = await eventually { host.presentedViewController == nil }
+            XCTAssertTrue(dismissed)
             XCTAssertNil(host.presentedViewController)
             XCTAssertNotNil(preview.window)
             XCTAssertTrue(session.isPlaying)
@@ -242,6 +246,15 @@ final class PlaybackSessionTests: XCTestCase {
         return try JSONSerialization.data(withJSONObject: [
             "v": "5.7.0", "fr": 60, "ip": 0, "op": 120, "w": 100, "h": 100, "layers": [layer], "assets": [],
         ])
+    }
+
+    private func eventually(_ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
+        while ContinuousClock.now < deadline {
+            if condition() { return true }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return false
     }
 
     func testClosedRuntimeSwitchCannotClearNewerOperation() async throws {

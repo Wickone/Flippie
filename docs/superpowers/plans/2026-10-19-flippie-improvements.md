@@ -140,13 +140,15 @@
 
 **Interfaces:** `AnimationTimeline(startFrame: Double, endFrame: Double, frameRate: Double)`; методы `absoluteFrame(forProgress: Double) -> Double` и `progress(forAbsoluteFrame: Double) -> Double`. Публичный `currentFrame` всех engines — абсолютный кадр; JS relative frame преобразуется на границе bridge.
 
-- [ ] Регрессия `ip=60, op=120, fr=60`: progress 0/0.5 соответствует frame 60/90; step 60→61 одинаков для native/web; последний экспортный кадр не выходит за `op`.
-- [ ] Добавить readiness state с сохранением failure, deadline и cancellation handler для ready/frame/snapshot continuations; обработать navigation failure и завершение web-процесса.
-- [ ] Проверить `testWebSnapshotCancellationFinishes`, `testReadyFailureIsReturnedToLateWaiter`, `testWebProcessTerminationFailsPendingRequests`.
-- [ ] Исправить UTF-8 decode и проверить `Привет 👋` как actual text-layer content через bridge, а не только JSON parse в Swift.
-- [ ] Реализовать web autoReverse с переключением направления по завершению сегмента; `testWebAutoReverseVisitsFramesInBothDirections` проверяет последовательность кадров.
-- [ ] Заменить фиксированное ожидание 100 ms на подтверждение подготовленного кадра. Ровность кадра проверить снимками движущегося объекта.
-- [ ] Коммит этапа после тестов с blur, masks и ненулевым `ip`.
+- [x] Регрессия `ip=60, op=120, fr=60`: progress 0/0.5 соответствует frame 60/90; step 60→61 одинаков для native/web; последний экспортный кадр не выходит за `op`.
+- [x] Добавить readiness state с сохранением failure, deadline и cancellation handler для ready/frame/snapshot continuations; обработать navigation failure и завершение web-процесса.
+- [x] Проверить `testWebSnapshotCancellationFinishes`, `testReadyFailureIsReturnedToLateWaiter`, `testWebProcessTerminationFailsPendingRequests`.
+- [x] Исправить UTF-8 decode и проверить `Привет 👋` как actual text-layer content через bridge, а не только JSON parse в Swift.
+- [x] Реализовать web autoReverse с переключением направления по завершению сегмента; `testWebAutoReverseVisitsFramesInBothDirections` проверяет последовательность кадров.
+- [x] Заменить фиксированное ожидание 100 ms на подтверждение подготовленного кадра. Ровность кадра проверить снимками движущегося объекта.
+- [x] Коммит этапа после тестов с blur, masks и ненулевым `ip`.
+
+Проверки: 98/98 тестов на iOS 26.5, 38/38 проверок плеера/шторок на iOS 27, generic iOS build успешен. Реальные кадры с маской, blur и offset, дробные границы и исправления ревью описаны в [отчёте этапа 4](2026-10-20-stage-4-verification.md).
 
 ### Этап 5 — достоверный и управляемый экспорт (P1)
 

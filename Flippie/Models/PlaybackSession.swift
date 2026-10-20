@@ -3,7 +3,7 @@ import SwiftUI
 /// Owns the preview UIView for the lifetime of the editor, not a sheet.
 @MainActor
 final class PlaybackSession: ObservableObject {
-    enum Readiness: Equatable { case empty, loading, ready }
+    enum Readiness: Equatable { case empty, loading, ready, failed }
     let player = VersionedLottiePlayerView()
     @Published private(set) var readiness: Readiness = .empty
     @Published private(set) var isPlaying = false
@@ -15,6 +15,8 @@ final class PlaybackSession: ObservableObject {
     var currentFrame: Double { progress * totalFrames }
     private var timer: Timer?
     private var loadGeneration = UUID()
+    private var pendingCandidate: VersionedLottiePlayerView.PreparedAnimation?
+    private var liveReadiness: Readiness = .empty
     private var isSceneActive = true
     private var resumeOnActivation = false
     @Published private(set) var pendingRuntime: LottieRuntimeVersion?
@@ -49,12 +51,16 @@ final class PlaybackSession: ObservableObject {
         if !preservingPlayback { cancelRuntimeSwitch() }
         let generation = UUID()
         loadGeneration = generation
+        pendingCandidate?.invalidate()
+        pendingCandidate = nil
         readiness = .loading
         do {
             let candidate = try player.prepare(data: data, runtime: runtime, baseURL: baseURL)
+            pendingCandidate = candidate
             try await waitForCandidate(candidate)
             try Task.checkCancellation()
             guard generation == loadGeneration else { throw CancellationError() }
+            pendingCandidate = nil
             let oldProgress = preservingPlayback ? player.currentProgress : 0
             let shouldPlay = preservingPlayback && (isPlaying || resumeOnActivation)
             stopTracking()
@@ -68,10 +74,15 @@ final class PlaybackSession: ObservableObject {
             resumeOnActivation = false
             player.currentProgress = oldProgress
             progress = oldProgress
+            liveReadiness = .ready
             readiness = .ready
             if shouldPlay { play() }
         } catch {
-            if generation == loadGeneration { readiness = hasAnimation ? .ready : .empty }
+            if generation == loadGeneration {
+                pendingCandidate?.invalidate()
+                pendingCandidate = nil
+                readiness = liveReadiness
+            }
             throw error
         }
     }
@@ -82,8 +93,13 @@ final class PlaybackSession: ObservableObject {
         resumeOnActivation = false
         isPlaying = true
         player.play { [weak self] finished in
-            guard let self, finished, self.isPlaying else { return }
-            self.progress = 1
+            guard let self, self.isPlaying else { return }
+            if finished { self.progress = 1 }
+            else {
+                self.updateProgress()
+                self.liveReadiness = .failed
+                self.readiness = .failed
+            }
             self.isPlaying = false
             self.stopTracking()
         }
@@ -121,6 +137,8 @@ final class PlaybackSession: ObservableObject {
     func close() {
         cancelRuntimeSwitch()
         loadGeneration = UUID()
+        pendingCandidate?.invalidate()
+        pendingCandidate = nil
         resumeOnActivation = false
         stopTracking()
         player.unload()
@@ -128,6 +146,7 @@ final class PlaybackSession: ObservableObject {
         hasAnimation = false
         progress = 0
         totalFrames = 0
+        liveReadiness = .empty
         readiness = .empty
     }
     private func updateProgress() {

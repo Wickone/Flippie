@@ -80,12 +80,15 @@ struct AnimationMetadata: Equatable {
     let features: LottieFeatureSummary
 
     var frameCount: Double {
-        max(0, endFrame - startFrame)
+        timeline.frameCount
     }
 
     var duration: Double {
-        guard frameRate > 0 else { return 0 }
-        return frameCount / frameRate
+        timeline.duration
+    }
+
+    var timeline: AnimationTimeline {
+        AnimationTimeline(startFrame: startFrame, endFrame: endFrame, frameRate: frameRate)
     }
 }
 
