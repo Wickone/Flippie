@@ -32,11 +32,16 @@ the SVG fallback are checked into the repository.
 ### Import and inspect
 
 - JSON and `.lottie` import through the iOS file picker.
-- Initial animation selection from dotLottie v1/v2 manifests.
-- Local copies of imported files and referenced image assets.
+- Native animation chooser for multi-animation dotLottie v1/v2 packages,
+  with the manifest's initial animation marked as the default.
+- Owned local packages with copied image assets. dotLottie packages retain
+  their original animations, manifest, themes, state machines and font files.
+- Bounded reads/ZIP extraction, integrity checks and transactional rollback
+  on errors or cancellation. Exact image paths take priority over filename fallbacks.
 - Import report with format version from `v`, canvas, timing, assets,
   diagnostics and runtime load results.
 - Folder selection to locate missing image assets.
+- Explicit warnings for preserved package features the player does not execute.
 - Six bundled example animations, opened by tapping the welcome message.
 
 ### Playback and comparison

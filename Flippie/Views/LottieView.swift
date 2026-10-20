@@ -74,6 +74,7 @@ final class VersionedLottiePlayerView: UIView {
         renderingMode: LottieRenderingMode = .automatic,
         baseURL: URL? = nil
     ) throws -> AnimationFrameRange {
+        try LottieImportService.validate(data)
         let nextEngine: Engine
         let range: AnimationFrameRange
 
@@ -319,96 +320,6 @@ final class VersionedLottiePlayerView: UIView {
     }
 }
 
-private enum LottieImageAssetResolver {
-    static func image(name: String, directory: String, baseURL: URL) -> CGImage? {
-        if let embeddedImage = embeddedImage(named: name) {
-            return embeddedImage
-        }
-
-        for url in candidateURLs(name: name, directory: directory, baseURL: baseURL) {
-            guard FileManager.default.fileExists(atPath: url.path),
-                  let image = UIImage(contentsOfFile: url.path)?.cgImage else {
-                continue
-            }
-            return image
-        }
-        return nil
-    }
-
-    private static func embeddedImage(named name: String) -> CGImage? {
-        guard name.hasPrefix("data:") else { return nil }
-
-        if let url = URL(string: name),
-           let data = try? Data(contentsOf: url),
-           let image = UIImage(data: data)?.cgImage {
-            return image
-        }
-
-        guard let commaIndex = name.firstIndex(of: ",") else { return nil }
-        let payload = String(name[name.index(after: commaIndex)...])
-        let data: Data?
-        if name[..<commaIndex].contains(";base64") {
-            data = Data(base64Encoded: payload)
-        } else {
-            data = payload.removingPercentEncoding?.data(using: .utf8)
-        }
-        return data.flatMap { UIImage(data: $0)?.cgImage }
-    }
-
-    private static func candidateURLs(
-        name: String,
-        directory: String,
-        baseURL: URL
-    ) -> [URL] {
-        let rawCandidates = [
-            name,
-            joined(directory, name),
-            joined("images", name),
-            joined("i", name),
-            joined("assets", name),
-        ].compactMap { $0 }
-
-        var result: [URL] = []
-        var seen = Set<String>()
-        for candidate in rawCandidates {
-            guard let safePath = safeRelativePath(candidate) else { continue }
-            let url = safePath.reduce(baseURL) { partialURL, component in
-                partialURL.appendingPathComponent(component)
-            }
-            if seen.insert(url.path).inserted {
-                result.append(url)
-            }
-        }
-        return result
-    }
-
-    private static func joined(_ directory: String, _ name: String) -> String? {
-        guard !directory.isEmpty else { return name }
-        return (directory as NSString).appendingPathComponent(name)
-    }
-
-    private static func safeRelativePath(_ rawPath: String) -> [String]? {
-        let normalizedPath = rawPath
-            .replacingOccurrences(of: "\\", with: "/")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedPath.isEmpty,
-              !normalizedPath.hasPrefix("/"),
-              !normalizedPath.hasPrefix("~"),
-              URL(string: normalizedPath)?.scheme == nil else {
-            return nil
-        }
-
-        let components = normalizedPath
-            .split(separator: "/", omittingEmptySubsequences: true)
-            .map(String.init)
-        guard !components.isEmpty,
-              components.allSatisfy({ $0 != "." && $0 != ".." }) else {
-            return nil
-        }
-        return components
-    }
-}
-
 private final class Lottie300FileImageProvider: Lottie300.AnimationImageProvider {
     let baseURL: URL
 
@@ -417,7 +328,7 @@ private final class Lottie300FileImageProvider: Lottie300.AnimationImageProvider
     }
 
     func imageForAsset(asset: Lottie300.ImageAsset) -> CGImage? {
-        LottieImageAssetResolver.image(
+        LottieAssetResolver.image(
             name: asset.name,
             directory: asset.directory,
             baseURL: baseURL
@@ -433,7 +344,7 @@ private final class Lottie350FileImageProvider: Lottie350.AnimationImageProvider
     }
 
     func imageForAsset(asset: Lottie350.ImageAsset) -> CGImage? {
-        LottieImageAssetResolver.image(
+        LottieAssetResolver.image(
             name: asset.name,
             directory: asset.directory,
             baseURL: baseURL
@@ -449,7 +360,7 @@ private final class Lottie400FileImageProvider: Lottie400.AnimationImageProvider
     }
 
     func imageForAsset(asset: Lottie400.ImageAsset) -> CGImage? {
-        LottieImageAssetResolver.image(
+        LottieAssetResolver.image(
             name: asset.name,
             directory: asset.directory,
             baseURL: baseURL
@@ -465,7 +376,7 @@ private final class Lottie461FileImageProvider: Lottie461.AnimationImageProvider
     }
 
     func imageForAsset(asset: Lottie461.ImageAsset) -> CGImage? {
-        LottieImageAssetResolver.image(
+        LottieAssetResolver.image(
             name: asset.name,
             directory: asset.directory,
             baseURL: baseURL
@@ -486,6 +397,7 @@ struct LottieView: UIViewRepresentable {
 struct RendererComparisonView: View {
     let data: Data
     let formatVersion: String?
+    var baseURL: URL? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var coreAnimationView = VersionedLottiePlayerView()
@@ -597,7 +509,8 @@ struct RendererComparisonView: View {
             _ = try coreAnimationView.load(
                 data: data,
                 runtime: .v461,
-                renderingMode: .coreAnimation
+                renderingMode: .coreAnimation,
+                baseURL: baseURL
             )
             coreAnimationView.loopMode = .loop
         } catch {
@@ -608,7 +521,8 @@ struct RendererComparisonView: View {
             _ = try mainThreadView.load(
                 data: data,
                 runtime: .v461,
-                renderingMode: .mainThread
+                renderingMode: .mainThread,
+                baseURL: baseURL
             )
             mainThreadView.loopMode = .loop
         } catch {

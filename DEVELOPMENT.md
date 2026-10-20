@@ -159,3 +159,9 @@ marks that as fallback.
 See the [improvement plan](docs/superpowers/plans/2026-10-19-flippie-improvements.md)
 and the [stage 1 verification record](docs/superpowers/plans/2026-10-19-stage-1-verification.md)
 for the measured baseline and remaining work.
+
+Stage 2 adds 28 focused import tests (`LottieImportTests`) alongside the 32
+existing smoke tests. The [stage 2 verification record](docs/superpowers/plans/2026-10-20-stage-2-verification.md)
+documents import limits, package ownership, cancellation/rollback and the
+remaining physical-device provider checks. Tests create valid ZIP/PNG fixtures
+at runtime; never weaken CRC/image validation to accommodate placeholder bytes.

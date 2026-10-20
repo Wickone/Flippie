@@ -1,6 +1,11 @@
 import Foundation
 import SwiftUI
 
+private func safeLottieInteger(_ value: Any?) -> Int {
+    guard let value = value as? NSNumber else { return 0 }
+    return Int(exactly: value.doubleValue.rounded(.towardZero)) ?? 0
+}
+
 struct RGBAColor: Hashable, Codable {
     let red: Double
     let green: Double
@@ -290,7 +295,7 @@ private enum LottieFeatureScanner {
 
     private static func makeAssetMap(from assets: [[String: Any]]) -> [String: AssetInfo] {
         Dictionary(
-            uniqueKeysWithValues: assets.compactMap { asset in
+            assets.compactMap { asset in
                 guard let id = asset["id"] as? String else { return nil }
                 let kind: AssetInfo.Kind
                 let isEmbeddedImage: Bool
@@ -301,7 +306,7 @@ private enum LottieFeatureScanner {
                 } else if asset["p"] != nil || asset["u"] != nil {
                     kind = .image
                     let path = asset["p"] as? String ?? ""
-                    let embeddedFlag = Int(number(asset["e"])) == 1
+                    let embeddedFlag = safeLottieInteger(asset["e"]) == 1
                     isEmbeddedImage = embeddedFlag || path.hasPrefix("data:")
                 } else {
                     kind = .unknown
@@ -309,7 +314,7 @@ private enum LottieFeatureScanner {
                 }
 
                 return (id, AssetInfo(id: id, kind: kind, isEmbeddedImage: isEmbeddedImage))
-            }
+            }, uniquingKeysWith: { first, _ in first }
         )
     }
 
@@ -321,7 +326,7 @@ private enum LottieFeatureScanner {
         for (index, layer) in layers.enumerated() {
             accumulator.totalLayerCount += 1
 
-            let layerType = Int(number(layer["ty"]))
+            let layerType = safeLottieInteger(layer["ty"])
             increment(layerTypeName(layerType), in: &accumulator.layerTypes)
             if layerTypeName(layerType).hasPrefix("Unknown") {
                 increment("ty \(layerType)", in: &accumulator.unknownLayerTypes)
@@ -330,7 +335,7 @@ private enum LottieFeatureScanner {
             if bool(layer["hd"]) {
                 accumulator.hiddenLayerCount += 1
             }
-            if Int(number(layer["ddd"])) == 1 {
+            if safeLottieInteger(layer["ddd"]) == 1 {
                 accumulator.threeDLayerCount += 1
             }
             if layer["parent"] != nil {
@@ -373,7 +378,7 @@ private enum LottieFeatureScanner {
     ) {
         for effect in effects {
             accumulator.effectCount += 1
-            let effectType = Int(number(effect["ty"]))
+            let effectType = safeLottieInteger(effect["ty"])
             if effectType == 29 {
                 accumulator.gaussianBlurCount += 1
             }
@@ -436,7 +441,7 @@ private enum LottieFeatureScanner {
 
     private static func countKeyframedProperties(in value: Any) -> Int {
         countDictionaries(in: value) { dictionary in
-            Int(number(dictionary["a"])) == 1 && dictionary["k"] != nil
+            safeLottieInteger(dictionary["a"]) == 1 && dictionary["k"] != nil
         }
     }
 
@@ -521,7 +526,7 @@ private enum LottieFeatureScanner {
 
     private static func bool(_ value: Any?) -> Bool {
         if let bool = value as? Bool { return bool }
-        return Int(number(value)) != 0
+        return safeLottieInteger(value) != 0
     }
 
     private static func number(_ value: Any?) -> Double {
@@ -579,6 +584,7 @@ final class AnimationDocument: ObservableObject {
     }
 
     func load(data: Data, sourceURL: URL? = nil) throws {
+        try LottieImportService.validate(data)
         let root = try Self.rootObject(from: data)
         guard root["layers"] is [[String: Any]] else {
             throw AnimationDocumentError.missingLayers
@@ -681,8 +687,8 @@ final class AnimationDocument: ObservableObject {
             frameRate: number(root["fr"]),
             startFrame: number(root["ip"]),
             endFrame: number(root["op"]),
-            width: Int(number(root["w"])),
-            height: Int(number(root["h"])),
+            width: safeLottieInteger(root["w"]),
+            height: safeLottieInteger(root["h"]),
             layerCount: layers.count,
             assetCount: assets.count,
             features: features
@@ -875,10 +881,10 @@ final class AnimationDocument: ObservableObject {
     ) {
         for layer in layers {
             let layerName = layer["nm"] as? String ?? "Unnamed layer"
-            let layerIndex = Int(number(layer["ind"]))
+            let layerIndex = safeLottieInteger(layer["ind"])
 
             for effect in layer["ef"] as? [[String: Any]] ?? [] {
-                let effectType = Int(number(effect["ty"]))
+                let effectType = safeLottieInteger(effect["ty"])
                 guard effectType != 25 else { continue }
 
                 let effectName = effect["nm"] as? String
@@ -941,8 +947,8 @@ final class AnimationDocument: ObservableObject {
             return
         }
 
-        let width = max(1, Int(number(root["w"])))
-        let height = max(1, Int(number(root["h"])))
+        let width = max(1, safeLottieInteger(root["w"]))
+        let height = max(1, safeLottieInteger(root["h"]))
         let startFrame = number(root["ip"])
         let endFrame = number(root["op"])
         let maximumIndex = layers.compactMap { ($0["ind"] as? NSNumber)?.intValue }.max() ?? 0
@@ -1143,7 +1149,7 @@ final class AnimationDocument: ObservableObject {
     private static func containsGaussianBlur(in value: Any) -> Bool {
         if let dictionary = value as? [String: Any] {
             if let effects = dictionary["ef"] as? [[String: Any]],
-               effects.contains(where: { Int(number($0["ty"])) == 29 }) {
+               effects.contains(where: { safeLottieInteger($0["ty"]) == 29 }) {
                 return true
             }
             return dictionary.values.contains(where: containsGaussianBlur)

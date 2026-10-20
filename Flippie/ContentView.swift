@@ -16,6 +16,9 @@ struct ContentView: View {
     @State private var showingPlaybackSettingsDialog = false
     @State private var showingAlert = false
     @State private var importReport: LottieImportReport?
+    @State private var pendingPackage: ImportedLottieFile?
+    @State private var pendingPackageCleanupURL: URL?
+    @State private var pendingAnimationSelection: (file: ImportedLottieFile, path: String)?
     @State private var pendingAssetRepairReport: LottieImportReport?
     @State private var importCompatibilityResults: [LottieCompatibilityResult] = []
     @State private var alertMessage = ""
@@ -978,6 +981,19 @@ struct ContentView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
+        .sheet(item: $pendingPackage, onDismiss: discardPendingPackage) { imported in
+            LottieAnimationPickerSheet(
+                animations: imported.report.animations,
+                selectedPath: imported.report.selectedAnimationPath,
+                onSelect: { path in
+                    pendingAnimationSelection = (imported, path)
+                    pendingPackage = nil
+                },
+                onCancel: { pendingPackage = nil }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showingExportSheet) {
             MainExportView(document: document)
                 .presentationDetents([.medium, .large])
@@ -1007,7 +1023,8 @@ struct ContentView: View {
             if let data = document.renderedData {
                 RendererComparisonView(
                     data: data,
-                    formatVersion: document.metadata?.formatVersion
+                    formatVersion: document.metadata?.formatVersion,
+                    baseURL: document.sourceURL?.deletingLastPathComponent()
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
@@ -1218,13 +1235,12 @@ struct ContentView: View {
             do {
                 let imported = try await LottieImportService.importAnimation(from: url)
                 packageURL = imported.packageURL
-                try loadAnimation(data: imported.data, sourceURL: imported.url)
-                statusMessage = "Testing runtime compatibility…"
-                importCompatibilityResults = makeCompatibilityMatrix(
-                    data: document.renderedData ?? imported.data,
-                    baseURL: imported.url.deletingLastPathComponent()
-                )
-                importReport = imported.report
+                if imported.report.animations.count > 1 {
+                    pendingPackageCleanupURL = imported.packageURL
+                    pendingPackage = imported
+                } else {
+                    try finishImport(imported)
+                }
                 statusMessage = ""
             } catch {
                 if let packageURL {
@@ -1235,6 +1251,45 @@ struct ContentView: View {
                 showingAlert = true
             }
         }
+    }
+
+    private func discardPendingPackage() {
+        if let selection = pendingAnimationSelection {
+            pendingAnimationSelection = nil
+            pendingPackageCleanupURL = nil
+            selectImportedAnimation(path: selection.path, in: selection.file)
+            return
+        }
+        if let url = pendingPackageCleanupURL {
+            try? FileManager.default.removeItem(at: url)
+            pendingPackageCleanupURL = nil
+        }
+    }
+
+    private func selectImportedAnimation(path: String, in imported: ImportedLottieFile) {
+        isImporting = true
+        statusMessage = "Preparing selected animation…"
+        Task { @MainActor in
+            defer { isImporting = false; statusMessage = "" }
+            do {
+                let selected = try await LottieImportService.selectAnimation(path: path, in: imported)
+                try finishImport(selected)
+            } catch {
+                try? FileManager.default.removeItem(at: imported.packageURL)
+                alertMessage = "Import failed: \(error.localizedDescription)"
+                showingAlert = true
+            }
+        }
+    }
+
+    private func finishImport(_ imported: ImportedLottieFile) throws {
+        try loadAnimation(data: imported.data, sourceURL: imported.url)
+        statusMessage = "Testing runtime compatibility…"
+        importCompatibilityResults = makeCompatibilityMatrix(
+            data: document.renderedData ?? imported.data,
+            baseURL: imported.url.deletingLastPathComponent()
+        )
+        importReport = imported.report
     }
 
     private func beginMissingAssetRepair(from report: LottieImportReport) {
@@ -1527,6 +1582,15 @@ private struct ImportReportSheet: View {
                 VStack(alignment: .leading, spacing: 18) {
                     summarySection
                     animationSection
+                    if !report.warnings.isEmpty {
+                        reportSection("Package compatibility") {
+                            ForEach(report.warnings, id: \.self) { warning in
+                                Label(warning, systemImage: "exclamationmark.triangle")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
                     assetSection
                     compatibilitySection
                     rendererSection
@@ -1657,6 +1721,7 @@ private struct ImportReportSheet: View {
 
     private var hasWarnings: Bool {
         report.hasAssetProblems
+            || !report.warnings.isEmpty
             || compatibilityResults.contains { $0.status != .passed }
             || diagnostics.contains { $0.severity == .warning || $0.severity == .error }
     }

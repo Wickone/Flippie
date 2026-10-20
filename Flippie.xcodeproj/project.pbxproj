@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8B0000000000000000000003 /* LottieAssetResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0000000000000000000004 /* LottieAssetResolver.swift */; };
+		8B0000000000000000000001 /* LottieImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B0000000000000000000002 /* LottieImportTests.swift */; };
 		1A2B3C4D5E6F7G8H9I0J1K2L /* FlippieApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K2M /* FlippieApp.swift */; };
 		1A2B3C4D5E6F7G8H9I0J1K2N /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K2O /* ContentView.swift */; };
 		1A2B3C4D5E6F7G8H9I0J1K2P /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F7G8H9I0J1K2Q /* Assets.xcassets */; };
@@ -53,6 +55,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		8B0000000000000000000004 /* LottieAssetResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieAssetResolver.swift; sourceTree = "<group>"; };
+		8B0000000000000000000002 /* LottieImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieImportTests.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7G8H9I0J1K2A /* Flippie.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Flippie.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A2B3C4D5E6F7G8H9I0J1K2M /* FlippieApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlippieApp.swift; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7G8H9I0J1K2O /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -196,6 +200,7 @@
 			isa = PBXGroup;
 			children = (
 				2B3C4D5E6F7G8H9I0J1K2L03 /* FlippieSmokeTests.swift */,
+				8B0000000000000000000002 /* LottieImportTests.swift */,
 				5E6F7G8H9I0J1K2L3M4N5O12 /* test_star.json */,
 			);
 			path = FlippieTests;
@@ -215,6 +220,7 @@
 			children = (
 				5E6F7G8H9I0J1K2L3M4N5O02 /* AnimationExporter.swift */,
 				5E6F7G8H9I0J1K2L3M4N5O05 /* LottieImportService.swift */,
+				8B0000000000000000000004 /* LottieAssetResolver.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -357,6 +363,7 @@
 				3C4D5E6F7G8H9I0J1K2L3M03 /* LottieRuntimeVersion.swift in Sources */,
 				5E6F7G8H9I0J1K2L3M4N5O01 /* AnimationExporter.swift in Sources */,
 				5E6F7G8H9I0J1K2L3M4N5O04 /* LottieImportService.swift in Sources */,
+				8B0000000000000000000003 /* LottieAssetResolver.swift in Sources */,
 				5E6F7G8H9I0J1K2L3M4N5O06 /* LottieWebPlayerView.swift in Sources */,
 					1A2B3C4D5E6F7G8H9I0J1K40 /* LottieAnalyzer.swift in Sources */,
 					1A2B3C4D5E6F7G8H9I0J1K45 /* ContentViewSupport.swift in Sources */,
@@ -372,6 +379,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2B3C4D5E6F7G8H9I0J1K2L02 /* FlippieSmokeTests.swift in Sources */,
+				8B0000000000000000000001 /* LottieImportTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

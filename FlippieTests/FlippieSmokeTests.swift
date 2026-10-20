@@ -164,7 +164,7 @@ final class FlippieSmokeTests: XCTestCase {
         )
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
-        let imageData = Data([0x89, 0x50, 0x4E, 0x47])
+        let imageData = try makeTestPNGData()
         try imageData.write(to: imagesDirectory.appendingPathComponent("photo.png"))
 
         let jsonData = try JSONSerialization.data(withJSONObject: [
@@ -231,7 +231,7 @@ final class FlippieSmokeTests: XCTestCase {
         XCTAssertEqual(imported.report.resolvedExternalImageCount, 0)
         XCTAssertEqual(imported.report.missingExternalImageCount, 1)
         XCTAssertTrue(imported.report.hasAssetProblems)
-        XCTAssertEqual(imported.report.imageAssets.first?.candidatePaths.first, "missing.png")
+        XCTAssertEqual(imported.report.imageAssets.first?.candidatePaths.first, "images/missing.png")
     }
 
     func testRepairMissingAssetsCopiesFoundImagesIntoPackage() async throws {
@@ -244,7 +244,7 @@ final class FlippieSmokeTests: XCTestCase {
         )
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
-        let imageData = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A])
+        let imageData = try makeTestPNGData()
         try imageData.write(to: assetSearchDirectory.appendingPathComponent("missing.png"))
 
         let jsonData = try JSONSerialization.data(withJSONObject: [
@@ -1059,13 +1059,16 @@ final class FlippieSmokeTests: XCTestCase {
             }
 
             let localHeaderOffset = UInt32(archive.count)
+            let checksum = entry.data.withUnsafeBytes {
+                UInt32(crc32(0, $0.bindMemory(to: Bytef.self).baseAddress, uInt(entry.data.count)))
+            }
             appendUInt32LE(0x0403_4B50, to: &archive)
             appendUInt16LE(20, to: &archive)
             appendUInt16LE(0, to: &archive)
             appendUInt16LE(compressionMethod, to: &archive)
             appendUInt16LE(0, to: &archive)
             appendUInt16LE(0, to: &archive)
-            appendUInt32LE(0, to: &archive)
+            appendUInt32LE(checksum, to: &archive)
             appendUInt32LE(UInt32(compressedData.count), to: &archive)
             appendUInt32LE(UInt32(entry.data.count), to: &archive)
             appendUInt16LE(UInt16(nameData.count), to: &archive)
@@ -1080,7 +1083,7 @@ final class FlippieSmokeTests: XCTestCase {
             appendUInt16LE(compressionMethod, to: &centralDirectory)
             appendUInt16LE(0, to: &centralDirectory)
             appendUInt16LE(0, to: &centralDirectory)
-            appendUInt32LE(0, to: &centralDirectory)
+            appendUInt32LE(checksum, to: &centralDirectory)
             appendUInt32LE(UInt32(compressedData.count), to: &centralDirectory)
             appendUInt32LE(UInt32(entry.data.count), to: &centralDirectory)
             appendUInt16LE(UInt16(nameData.count), to: &centralDirectory)

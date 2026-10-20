@@ -92,7 +92,7 @@
 
 **Проверка:** `xcodebuild -list -project Flippie.xcodeproj`; `xcodebuild test -project Flippie.xcodeproj -scheme Flippie -destination 'platform=iOS Simulator,id=<проверенный UDID>' CODE_SIGNING_ALLOWED=NO`. Готовность: успешный полный прогон и реально работающие CI jobs, а не только исправленный YAML.
 
-**Статус 19.10.2026:** локальные проверки — 32/32 теста, 4/4 отдельных сборки, actionlint и проверки схем прошли. CI настроен на Xcode 26.3 / iOS 26.2; удалённый прогон GitHub Actions ожидается после отправки ветки. Подробности: [отчёт этапа 1](2026-10-19-stage-1-verification.md). Историческое ограничение CoreSimulator из раздела аудита выше устранено средствами выбранного Xcode.
+**Статус этапа 1:** локальные проверки — 32/32 теста, 4/4 отдельных сборки, actionlint и проверки схем прошли. После отправки `24d2fc3` все пять проверок [GitHub Actions](https://github.com/Wickone/Flippie/actions/runs/39274671217) прошли. CI использует Xcode 26.3 / iOS 26.2. Подробности локальной проверки: [отчёт этапа 1](2026-10-19-stage-1-verification.md). Историческое ограничение CoreSimulator из раздела аудита выше устранено средствами выбранного Xcode.
 
 ### Этап 2 — безопасный импорт и переносимый пакет (P0/P1)
 
@@ -100,19 +100,22 @@
 
 **Interfaces:** общий `LottieAssetResolver` используется отчётом, плеером и экспортом. Результат разрешения возвращает asset ID, URL/status и исходный относительный путь; пакет владеет JSON, manifest и ресурсами выбранной анимации.
 
-- [ ] Добавить фикстуры `.lottie` v1/v2 с несколькими анимациями, вложенными/одноимёнными изображениями, обычным JSON с соседними assets, повреждёнными данными и отменой.
-- [ ] Первыми добавить `testOversizedNumericFieldsReturnRecoverableError` и `testDuplicateAssetIDsReturnRecoverableError`; запретить trapping conversion и duplicate-key construction на недоверенном JSON. Диапазоны должны быть representable и ограничены согласованным ресурсным бюджетом, а не только условием `>0`.
-- [ ] Добавить `testInflateRejectsForgedUncompressedSizeDuringStreaming`: перед каждым append проверять реальный `produced` против ожидаемого размера и оставшегося бюджета 300 MiB. Ошибка останавливает распаковку до превышения лимита.
-- [ ] Активировать security scope для внешних file/folder URL, балансировать release при любом исходе; не считать file existence признаком sandbox-local URL. Проверить Files/iCloud и repair выбранной папки на устройстве.
-- [ ] Упорядочить поиск: точный `u+p` раньше basename fallback; отчёт `Found` должен соответствовать ресурсу, который реально декодируется renderer.
-- [ ] Развести extracted entries и служебный normalized JSON: `testImportNamedManifestPreservesManifestBytes` и тест root JSON с тем же basename проверяют отсутствие перезаписи.
-- [ ] Сделать импорт/repair транзакционными: временная staging-папка, commit после валидации, удаление только staging на ошибке или отмене. Ограничения проверять до дорогого чтения/распаковки, насколько позволяет provider.
-- [ ] Добавить cooperative cancellation, проверки целостности ZIP и тесты существующих path/size ограничений. Не писать новый архиватор без необходимости: оценить уже vendored ZIP реализацию перед выбором.
-- [ ] Добавить выбор анимации из `.lottie`; сохранить manifest/themes/fonts как данные пакета. Явно показывать неподдерживаемые возможности вместо молчаливой потери.
-- [ ] Подключить общий resolver в renderer comparison и передавать `baseURL`.
-- [ ] Коммит этапа после round-trip тестов пакета.
+- [x] Добавить фикстуры `.lottie` v1/v2 с несколькими анимациями, вложенными/одноимёнными изображениями, обычным JSON с соседними assets, повреждёнными данными и отменой.
+- [x] Первыми добавить `testOversizedNumericFieldsReturnRecoverableError` и `testDuplicateAssetIDsReturnRecoverableError`; запретить trapping conversion и duplicate-key construction на недоверенном JSON. Диапазоны ограничены явным ресурсным бюджетом из отчёта этапа, а не только условием `>0`.
+- [x] Добавить `testInflateRejectsForgedUncompressedSizeDuringStreaming`: перед каждым append проверять реальный `produced` против ожидаемого размера и оставшегося бюджета 300 MiB. Ошибка останавливает распаковку до превышения лимита.
+- [x] Активировать security scope для внешних file/folder URL, балансировать release при любом исходе; не считать file existence признаком sandbox-local URL.
+- [ ] Ручная проверка Files/iCloud и repair выбранной папки на физическом устройстве — локальные фикстуры её не заменяют.
+- [x] Упорядочить поиск: точный `u+p` раньше basename fallback; отчёт `Found` соответствует ресурсу, декодируемому общим resolver четырёх native runtime.
+- [x] Развести extracted entries и служебный normalized JSON: `testImportNamedManifestPreservesManifestBytes` и тест root JSON с тем же basename проверяют отсутствие перезаписи.
+- [x] Сделать импорт/repair транзакционными: временная staging-папка, commit после валидации, удаление только staging на ошибке или отмене. Ограничения проверяются до дорогого чтения/распаковки, насколько позволяет provider.
+- [x] Добавить cooperative cancellation, проверки целостности ZIP и тесты path/size ограничений. Оставлен существующий reader: vendored ZIP-типы закрыты внутри runtime-модуля; новая библиотека не добавлялась.
+- [x] Добавить выбор анимации из `.lottie`; сохранить manifest/themes/fonts как данные пакета. Неподдерживаемые возможности показаны предупреждениями.
+- [x] Подключить общий resolver в renderer comparison и передавать `baseURL`.
+- [x] Коммит этапа после round-trip тестов пакета.
 
 **Готовность:** загруженный пакет работает после потери доступа к исходной папке; отчёт и изображение совпадают; ошибка/отмена не оставляет незавершённый пакет. Themes/state machines — отдельный последующий этап исполнения, не побочный рефакторинг импортера.
+
+**Статус 20.10.2026:** реализация проверена 60/60 тестами и сборкой для iPhone; четыре замечания независимого ревью воспроизведены и исправлены. Физический Files/iCloud и ручные UI-переходы не проверены. Подробности: [отчёт этапа 2](2026-10-20-stage-2-verification.md). GitHub для этого этапа не изменён.
 
 ### Этап 3 — единый жизненный цикл плеера и модальных экранов (P0/P1)
 

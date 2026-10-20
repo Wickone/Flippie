@@ -1,16 +1,18 @@
 import Foundation
+import CoreFoundation
 import zlib
 
-struct ImportedLottieFile {
+struct ImportedLottieFile: Identifiable, Sendable {
     let url: URL
     let data: Data
     let packageURL: URL
     let manifestURL: URL?
     let report: LottieImportReport
+    var id: String { packageURL.path }
 }
 
-struct LottieImportReport: Identifiable, Equatable {
-    enum Kind: String, Equatable {
+struct LottieImportReport: Identifiable, Equatable, Sendable {
+    enum Kind: String, Equatable, Sendable {
         case json = "JSON"
         case dotLottie = ".lottie"
     }
@@ -25,6 +27,8 @@ struct LottieImportReport: Identifiable, Equatable {
     let packageFileCount: Int
     let packageSizeBytes: Int
     let imageAssets: [LottieImportAssetReport]
+    var animations: [LottiePackageAnimation] = []
+    var warnings: [String] = []
 
     var embeddedImageCount: Int {
         imageAssets.filter { $0.status == .embedded }.count
@@ -47,8 +51,8 @@ struct LottieImportReport: Identifiable, Equatable {
     }
 }
 
-struct LottieImportAssetReport: Identifiable, Equatable {
-    enum Status: String, Equatable {
+struct LottieImportAssetReport: Identifiable, Equatable, Sendable {
+    enum Status: String, Equatable, Sendable {
         case embedded
         case resolved
         case missing
@@ -80,6 +84,9 @@ enum LottieImportError: LocalizedError {
     case unsafeArchivePath(String)
     case archiveEntryTooLarge(String)
     case noRepairableAssetsFound
+    case duplicateAssetID(String)
+    case numericLimitExceeded
+    case resourceCollision(String)
 
     var errorDescription: String? {
         switch self {
@@ -96,11 +103,11 @@ enum LottieImportError: LocalizedError {
         case .missingField(let field):
             "The selected file is missing the required Lottie field “\(field)”."
         case .invalidDimensions:
-            "The Lottie width and height must be greater than zero."
+            "Canvas dimensions must be whole pixels from 1 to 16,384, with at most 16,777,216 pixels."
         case .invalidFrameRate:
-            "The Lottie frame rate must be greater than zero."
+            "The Lottie frame rate must be greater than zero and no more than 1,000 fps."
         case .invalidFrameRange:
-            "The Lottie end frame must be greater than its start frame."
+            "The end frame must follow the start frame, with a duration no longer than 24 hours."
         case .invalidArchive:
             "The selected .lottie archive is invalid or damaged."
         case .missingDotLottieAnimation:
@@ -113,6 +120,12 @@ enum LottieImportError: LocalizedError {
             "The .lottie archive entry “\(path)” is too large."
         case .noRepairableAssetsFound:
             "Flippie could not find any missing image assets in the selected folder."
+        case .duplicateAssetID(let id):
+            "The animation contains a duplicate asset ID: “\(id)”."
+        case .numericLimitExceeded:
+            "The animation exceeds Flippie’s safe numeric or complexity limits."
+        case .resourceCollision(let path):
+            "The image asset “\(path)” would overwrite an existing package file. No files were changed."
         }
     }
 }
@@ -123,7 +136,37 @@ enum LottieImportService {
     private static let maximumExpandedArchiveSize = 300 * 1_024 * 1_024
     private static let importsDirectoryName = "Flippie Imports"
 
+    static func selectAnimation(path: String, in imported: ImportedLottieFile) async throws -> ImportedLottieFile {
+        try await cancellableWork {
+            guard imported.report.animations.contains(where: { $0.path == path }),
+                  let sourceURL = LottieAssetResolver.fileURL(path, in: imported.packageURL) else {
+                throw LottieImportError.missingDotLottieAnimation
+            }
+            let data = try portableAnimationData(
+                readBounded(sourceURL, limit: maximumJSONSize), sourceURL: sourceURL, packageURL: imported.packageURL
+            )
+            try validate(data)
+            let stagedURL = imported.packageURL.deletingLastPathComponent()
+                .appendingPathComponent(".\(UUID().uuidString).staging")
+            defer { try? FileManager.default.removeItem(at: stagedURL) }
+            try FileManager.default.copyItem(at: imported.packageURL, to: stagedURL)
+            try data.write(to: stagedURL.appendingPathComponent(imported.url.lastPathComponent), options: .atomic)
+            try checkPackageBudget(stagedURL)
+            try Task.checkCancellation()
+            _ = try FileManager.default.replaceItemAt(imported.packageURL, withItemAt: stagedURL)
+            let report = makeReport(
+                sourceURL: URL(fileURLWithPath: imported.report.sourceFileName), kind: imported.report.kind,
+                data: data, packageURL: imported.packageURL, animationURL: imported.url,
+                manifestURL: imported.manifestURL, selectedAnimationPath: path, copiedAssets: [:],
+                animations: imported.report.animations, warnings: imported.report.warnings
+            )
+            return ImportedLottieFile(url: imported.url, data: data, packageURL: imported.packageURL,
+                                      manifestURL: imported.manifestURL, report: report)
+        }
+    }
+
     static func importAnimation(from sourceURL: URL) async throws -> ImportedLottieFile {
+        try Task.checkCancellation()
         if sourceURL.pathExtension.lowercased() == "lottie" {
             return try await importDotLottie(from: sourceURL)
         }
@@ -134,26 +177,39 @@ enum LottieImportService {
         in report: LottieImportReport,
         from searchDirectory: URL
     ) async throws -> LottieImportReport {
-        try await Task.detached(priority: .userInitiated) {
+        try await repairMissingAssets(in: report, from: searchDirectory, packageSizeLimit: maximumExpandedArchiveSize)
+    }
+
+    static func repairMissingAssets(
+        in report: LottieImportReport,
+        from searchDirectory: URL,
+        packageSizeLimit: Int
+    ) async throws -> LottieImportReport {
+        try await cancellableWork {
             try withSecurityScopedAccess(to: searchDirectory) {
+                guard packageSizeLimit > 0, packageSizeLimit <= maximumExpandedArchiveSize else {
+                    throw LottieImportError.fileTooLarge
+                }
+                var remainingBudget = try remainingPackageBudget(at: report.packageURL, limit: packageSizeLimit)
+                let stagedURL = report.packageURL.deletingLastPathComponent()
+                    .appendingPathComponent(".\(UUID().uuidString).staging")
+                defer { try? FileManager.default.removeItem(at: stagedURL) }
+                try FileManager.default.copyItem(at: report.packageURL, to: stagedURL)
                 let missingAssets = report.imageAssets.filter { $0.status == .missing }
                 var copiedAssets: [String: URL] = [:]
 
                 for asset in missingAssets {
-                    guard let sourceURL = findRepairAsset(for: asset, in: searchDirectory),
+                    try Task.checkCancellation()
+                    guard let sourceURL = try findRepairAsset(for: asset, in: searchDirectory),
                           let destinationPath = preferredRepairDestinationPath(for: asset) else {
                         continue
                     }
 
-                    let destinationURL = appendingRelativePath(destinationPath, to: report.packageURL)
-                    try FileManager.default.createDirectory(
-                        at: destinationURL.deletingLastPathComponent(),
-                        withIntermediateDirectories: true
-                    )
-                    if FileManager.default.fileExists(atPath: destinationURL.path) {
-                        try FileManager.default.removeItem(at: destinationURL)
+                    guard let destinationURL = LottieAssetResolver.fileURL(destinationPath, in: stagedURL) else {
+                        throw LottieImportError.unsafeArchivePath(destinationPath)
                     }
-                    try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+                    if copiedAssets[destinationPath] != nil { continue }
+                    try copyOwnedAsset(from: sourceURL, to: destinationURL, path: destinationPath, remainingBudget: &remainingBudget)
                     copiedAssets[destinationPath] = sourceURL
                 }
 
@@ -161,8 +217,15 @@ enum LottieImportService {
                     throw LottieImportError.noRepairableAssetsFound
                 }
 
-                let data = try Data(contentsOf: report.animationURL, options: .mappedIfSafe)
+                guard let playbackPath = relativePath(from: report.animationURL, in: report.packageURL),
+                      let stagedPlaybackURL = LottieAssetResolver.fileURL(playbackPath, in: stagedURL) else {
+                    throw LottieImportError.invalidJSON
+                }
+                let data = try readBounded(stagedPlaybackURL, limit: maximumJSONSize)
                 try validate(data)
+                _ = try remainingPackageBudget(at: stagedURL, limit: packageSizeLimit)
+                try Task.checkCancellation()
+                _ = try FileManager.default.replaceItemAt(report.packageURL, withItemAt: stagedURL)
                 return makeReport(
                     sourceURL: URL(fileURLWithPath: report.sourceFileName),
                     kind: report.kind,
@@ -171,19 +234,23 @@ enum LottieImportService {
                     animationURL: report.animationURL,
                     manifestURL: report.manifestURL,
                     selectedAnimationPath: report.selectedAnimationPath,
-                    copiedAssets: copiedAssets
+                    copiedAssets: copiedAssets,
+                    animations: report.animations, warnings: report.warnings
                 )
             }
-        }.value
+        }
     }
 
     static func importJSON(from sourceURL: URL) async throws -> ImportedLottieFile {
-        try await Task.detached(priority: .userInitiated) {
+        try await cancellableWork {
             try withSecurityScopedAccess(to: sourceURL) {
-                let data = try Data(contentsOf: sourceURL, options: .mappedIfSafe)
+                let data = try readBounded(sourceURL, limit: maximumJSONSize)
                 try validate(data)
 
-                let packageURL = try uniquePackageDirectoryURL(for: sourceURL)
+                let finalURL = try uniquePackageDirectoryURL(for: sourceURL)
+                let packageURL = finalURL.deletingLastPathComponent()
+                    .appendingPathComponent(".\(UUID().uuidString).staging")
+                defer { try? FileManager.default.removeItem(at: packageURL) }
                 try FileManager.default.createDirectory(
                     at: packageURL,
                     withIntermediateDirectories: true
@@ -198,26 +265,30 @@ enum LottieImportService {
                     originalJSONURL: sourceURL,
                     packageURL: packageURL
                 )
+                try checkPackageBudget(packageURL)
+                try Task.checkCancellation()
+                try FileManager.default.moveItem(at: packageURL, to: finalURL)
+                let finalAnimationURL = finalURL.appendingPathComponent(destinationURL.lastPathComponent)
                 let report = makeReport(
                     sourceURL: sourceURL,
                     kind: .json,
                     data: data,
-                    packageURL: packageURL,
-                    animationURL: destinationURL,
+                    packageURL: finalURL,
+                    animationURL: finalAnimationURL,
                     manifestURL: nil,
                     selectedAnimationPath: nil,
                     copiedAssets: copiedAssets
                 )
 
                 return ImportedLottieFile(
-                    url: destinationURL,
+                    url: finalAnimationURL,
                     data: data,
-                    packageURL: packageURL,
+                    packageURL: finalURL,
                     manifestURL: nil,
                     report: report
                 )
             }
-        }.value
+        }
     }
 
     static func validate(_ data: Data) throws {
@@ -241,6 +312,26 @@ enum LottieImportService {
         guard root["layers"] is [[String: Any]] else {
             throw LottieImportError.missingField("layers")
         }
+        var visited = 0
+        try validateNumbers(in: root, depth: 0, visited: &visited)
+        var assetIDs = Set<String>()
+        var imagePixels = 0.0
+        for asset in root["assets"] as? [[String: Any]] ?? [] {
+            if let id = asset["id"] as? String, !assetIDs.insert(id).inserted {
+                throw LottieImportError.duplicateAssetID(id)
+            }
+            if asset["p"] != nil, asset["w"] != nil || asset["h"] != nil {
+                guard let width = number(asset["w"]), let height = number(asset["h"]),
+                      width >= 1, height >= 1, width <= 16384, height <= 16384,
+                      width * height <= Double(LottieAssetResolver.maximumImagePixels) else {
+                    throw LottieImportError.invalidDimensions
+                }
+                imagePixels += width * height
+                guard imagePixels * 4 <= Double(maximumExpandedArchiveSize) else {
+                    throw LottieImportError.numericLimitExceeded
+                }
+            }
+        }
 
         for field in ["fr", "ip", "op", "w", "h"] where number(root[field]) == nil {
             throw LottieImportError.missingField(field)
@@ -249,23 +340,25 @@ enum LottieImportService {
         guard let width = number(root["w"]),
               let height = number(root["h"]),
               width > 0,
-              height > 0 else {
+              height > 0, width.rounded(.towardZero) == width, height.rounded(.towardZero) == height,
+              width <= 16384, height <= 16384,
+              width * height <= Double(LottieAssetResolver.maximumImagePixels) else {
             throw LottieImportError.invalidDimensions
         }
-        guard let frameRate = number(root["fr"]), frameRate > 0 else {
+        guard let frameRate = number(root["fr"]), frameRate > 0, frameRate <= 1000 else {
             throw LottieImportError.invalidFrameRate
         }
         guard let startFrame = number(root["ip"]),
               let endFrame = number(root["op"]),
-              endFrame > startFrame else {
+              endFrame > startFrame, (endFrame - startFrame) / (number(root["fr"]) ?? 1) <= 86400 else {
             throw LottieImportError.invalidFrameRange
         }
     }
 
     private static func importDotLottie(from sourceURL: URL) async throws -> ImportedLottieFile {
-        try await Task.detached(priority: .userInitiated) {
+        try await cancellableWork {
             try withSecurityScopedAccess(to: sourceURL) {
-                let archiveData = try Data(contentsOf: sourceURL, options: .mappedIfSafe)
+                let archiveData = try readBounded(sourceURL, limit: maximumArchiveSize)
                 guard !archiveData.isEmpty else {
                     throw LottieImportError.emptyFile
                 }
@@ -273,7 +366,10 @@ enum LottieImportService {
                     throw LottieImportError.fileTooLarge
                 }
 
-                let packageURL = try uniquePackageDirectoryURL(for: sourceURL)
+                let finalURL = try uniquePackageDirectoryURL(for: sourceURL)
+                let packageURL = finalURL.deletingLastPathComponent()
+                    .appendingPathComponent(".\(UUID().uuidString).staging")
+                defer { try? FileManager.default.removeItem(at: packageURL) }
                 try FileManager.default.createDirectory(
                     at: packageURL,
                     withIntermediateDirectories: true
@@ -282,33 +378,42 @@ enum LottieImportService {
                 do {
                     try DotLottieZipReader.extract(archiveData, to: packageURL)
                     let manifestURL = packageURL.appendingPathComponent("manifest.json")
-                    let selectedURL = try selectedDotLottieAnimationURL(
+                    let catalog = try animationCatalog(
                         in: packageURL,
                         manifestURL: manifestURL
                     )
-                    let data = try Data(contentsOf: selectedURL, options: .mappedIfSafe)
-                    try validate(data)
-                    let normalizedURL = packageURL.appendingPathComponent(
-                        "\(safeBaseName(for: sourceURL)).json"
+                    let selectedURL = packageURL.appendingPathComponent(catalog.selectedPath)
+                    let data = try portableAnimationData(
+                        readBounded(selectedURL, limit: maximumJSONSize), sourceURL: selectedURL, packageURL: packageURL
                     )
+                    try validate(data)
+                    var normalizedURL = packageURL.appendingPathComponent("\(safeBaseName(for: sourceURL)).json")
+                    if FileManager.default.fileExists(atPath: normalizedURL.path) {
+                        normalizedURL = packageURL.appendingPathComponent("\(safeBaseName(for: sourceURL))-\(UUID().uuidString).json")
+                    }
                     try data.write(to: normalizedURL, options: .atomic)
+                    let selectedPath = relativePath(from: selectedURL, in: packageURL)
                     let resolvedManifestURL = FileManager.default.fileExists(atPath: manifestURL.path)
-                        ? manifestURL
+                        ? finalURL.appendingPathComponent("manifest.json")
                         : nil
+                    try checkPackageBudget(packageURL)
+                    try Task.checkCancellation()
+                    try FileManager.default.moveItem(at: packageURL, to: finalURL)
+                    let finalAnimationURL = finalURL.appendingPathComponent(normalizedURL.lastPathComponent)
                     let report = makeReport(
                         sourceURL: sourceURL,
                         kind: .dotLottie,
                         data: data,
-                        packageURL: packageURL,
-                        animationURL: normalizedURL,
+                        packageURL: finalURL,
+                        animationURL: finalAnimationURL,
                         manifestURL: resolvedManifestURL,
-                        selectedAnimationPath: relativePath(from: selectedURL, in: packageURL),
-                        copiedAssets: [:]
+                        selectedAnimationPath: selectedPath,
+                        copiedAssets: [:], animations: catalog.animations, warnings: catalog.warnings
                     )
                     return ImportedLottieFile(
-                        url: normalizedURL,
+                        url: finalAnimationURL,
                         data: data,
-                        packageURL: packageURL,
+                        packageURL: finalURL,
                         manifestURL: resolvedManifestURL,
                         report: report
                     )
@@ -317,48 +422,48 @@ enum LottieImportService {
                     throw error
                 }
             }
-        }.value
+        }
     }
 
-    private static func selectedDotLottieAnimationURL(
+    private static func animationCatalog(
         in packageURL: URL,
         manifestURL: URL
-    ) throws -> URL {
-        if FileManager.default.fileExists(atPath: manifestURL.path),
-           let manifestData = try? Data(contentsOf: manifestURL),
-           let manifest = try? JSONSerialization.jsonObject(with: manifestData) as? [String: Any] {
-            let animations = manifest["animations"] as? [[String: Any]] ?? []
-            let initial = manifest["initial"] as? [String: Any]
-            let initialAnimationID = initial?["animation"] as? String
-            let activeID = manifest["activeAnimationId"] as? String
-            let preferredIDs = ([initialAnimationID, activeID] + animations.compactMap { $0["id"] as? String })
-                .compactMap { $0 }
-
-            for id in preferredIDs {
-                guard let safeID = safeRelativePath(id) else { continue }
-                for directory in ["animations", "a"] {
-                    let animationURL = appendingRelativePath(
-                        "\(directory)/\(safeID).json",
-                        to: packageURL
-                    )
-                    if isValidAnimationURL(animationURL) {
-                        return animationURL
-                    }
-                }
+    ) throws -> (animations: [LottiePackageAnimation], selectedPath: String, warnings: [String]) {
+        var warnings: [String] = []
+        var manifest: [String: Any] = [:]
+        if FileManager.default.fileExists(atPath: manifestURL.path) {
+            if let data = try? readBounded(manifestURL, limit: maximumJSONSize),
+               let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                manifest = parsed
+            } else {
+                warnings.append("The manifest is unreadable. Readable animations are listed by path instead.")
             }
-
-            for animation in animations {
-                for key in ["url", "path", "src"] {
-                    guard let rawPath = animation[key] as? String,
-                          let path = safeRelativePath(rawPath) else { continue }
-                    let animationURL = appendingRelativePath(path, to: packageURL)
-                    if isValidAnimationURL(animationURL) {
-                        return animationURL
-                    }
-                }
+        } else {
+            warnings.append("No manifest was found. Readable animations are listed by path instead.")
+        }
+        let declared = manifest["animations"] as? [[String: Any]] ?? []
+        let directories = (manifest["version"] as? String)?.hasPrefix("2") == true ? ["a", "animations"] : ["animations", "a"]
+        var choices: [LottiePackageAnimation] = []
+        var paths = Set<String>()
+        var invalidEntries = false
+        for animation in declared {
+            try Task.checkCancellation()
+            let id = animation["id"] as? String ?? ""
+            let standard = directories.map { "\($0)/\(id).json" }
+            let explicit = ["url", "path", "src"].compactMap { animation[$0] as? String }
+            guard let path = (standard + explicit).first(where: {
+                guard let url = LottieAssetResolver.fileURL($0, in: packageURL) else { return false }
+                return isValidAnimationURL(url)
+            }), let normalized = LottieAssetResolver.safeRelativePath(path) else {
+                invalidEntries = true
+                continue
+            }
+            if paths.insert(normalized).inserted {
+                choices.append(LottiePackageAnimation(animationID: id, title: animation["name"] as? String ?? id, path: normalized))
+            } else {
+                invalidEntries = true
             }
         }
-
         let animationURLs = allJSONFiles(in: packageURL)
             .filter { $0.lastPathComponent != "manifest.json" }
             .sorted { left, right in
@@ -372,15 +477,39 @@ enum LottieImportService {
                 return leftPath < rightPath
             }
 
-        for animationURL in animationURLs where isValidAnimationURL(animationURL) {
-            return animationURL
+        for animationURL in animationURLs {
+            try Task.checkCancellation()
+            guard let path = relativePath(from: animationURL, in: packageURL), !paths.contains(path),
+                  isValidAnimationURL(animationURL) else { continue }
+            paths.insert(path)
+            let id = animationURL.deletingPathExtension().lastPathComponent
+            choices.append(LottiePackageAnimation(animationID: id, title: id, path: path))
         }
-        throw LottieImportError.missingDotLottieAnimation
+        try Task.checkCancellation()
+        guard let first = choices.first else { throw LottieImportError.missingDotLottieAnimation }
+        let initial = manifest["initial"] as? [String: Any]
+        let preferred = initial?["animation"] as? String ?? manifest["activeAnimationId"] as? String
+        let selected = preferred.flatMap { id in choices.first { $0.animationID == id } }
+        if invalidEntries || (preferred != nil && selected == nil) {
+            warnings.append("Some manifest animation entries are missing, duplicated or invalid; only readable animations are available.")
+        }
+        for (key, directory, message) in [
+            ("themes", "t", "Themes are preserved in the package but are not applied by this player."),
+            ("stateMachines", "s", "State machines are preserved but are not executed by this player."),
+            ("fonts", "f", "Font files are preserved but custom package fonts are not installed by this player."),
+        ] {
+            if (manifest[key] as? [Any])?.isEmpty == false
+                || FileManager.default.fileExists(atPath: packageURL.appendingPathComponent(directory).path)
+                || (key == "stateMachines" && initial?["stateMachine"] != nil) {
+                warnings.append(message)
+            }
+        }
+        return (choices, (selected ?? first).path, warnings)
     }
 
     private static func isValidAnimationURL(_ url: URL) -> Bool {
         guard FileManager.default.fileExists(atPath: url.path),
-              let data = try? Data(contentsOf: url) else {
+              let data = try? readBounded(url, limit: maximumJSONSize) else {
             return false
         }
         return (try? validate(data)) != nil
@@ -396,7 +525,7 @@ enum LottieImportService {
         guard let enumerator = FileManager.default.enumerator(
             at: directoryURL,
             includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
+            options: []
         ) else { return [] }
 
         return enumerator.compactMap { item -> URL? in
@@ -420,22 +549,20 @@ enum LottieImportService {
         }
 
         var copiedAssets: [String: URL] = [:]
+        var remainingBudget = try remainingPackageBudget(at: packageURL, limit: maximumExpandedArchiveSize)
         let sourceDirectory = originalJSONURL.deletingLastPathComponent()
         for asset in assets {
-            guard let assetPath = externalAssetPath(from: asset) else { continue }
-
-            let sourceURL = appendingRelativePath(assetPath, to: sourceDirectory)
-            let destinationURL = appendingRelativePath(assetPath, to: packageURL)
-            guard FileManager.default.fileExists(atPath: sourceURL.path) else { continue }
-
-            try FileManager.default.createDirectory(
-                at: destinationURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
+            try Task.checkCancellation()
+            let resolution = LottieAssetResolver.resolve(
+                name: asset["p"] as? String ?? "", directory: asset["u"] as? String ?? "",
+                baseURL: sourceDirectory, assetID: asset["id"] as? String
             )
-            if FileManager.default.fileExists(atPath: destinationURL.path) {
-                try FileManager.default.removeItem(at: destinationURL)
-            }
-            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+            guard let sourceURL = resolution.url,
+                  let assetPath = resolution.candidatePaths.first,
+                  let destinationURL = LottieAssetResolver.fileURL(assetPath, in: packageURL) else { continue }
+
+            if copiedAssets[assetPath] != nil { continue }
+            try copyOwnedAsset(from: sourceURL, to: destinationURL, path: assetPath, remainingBudget: &remainingBudget)
             copiedAssets[assetPath] = sourceURL
         }
         return copiedAssets
@@ -444,21 +571,23 @@ enum LottieImportService {
     private static func findRepairAsset(
         for asset: LottieImportAssetReport,
         in searchDirectory: URL
-    ) -> URL? {
+    ) throws -> URL? {
         let fileNames = Set(([asset.path] + asset.candidatePaths).map {
             ($0 as NSString).lastPathComponent
         }.filter { !$0.isEmpty })
 
         for candidatePath in asset.candidatePaths {
-            let url = appendingRelativePath(candidatePath, to: searchDirectory)
-            if isRegularFile(at: url) {
+            try Task.checkCancellation()
+            if let url = LottieAssetResolver.fileURL(candidatePath, in: searchDirectory),
+               LottieAssetResolver.image(at: url) != nil {
                 return url
             }
         }
 
         for fileName in fileNames {
-            let url = searchDirectory.appendingPathComponent(fileName)
-            if isRegularFile(at: url) {
+            try Task.checkCancellation()
+            if let url = LottieAssetResolver.fileURL(fileName, in: searchDirectory),
+               LottieAssetResolver.image(at: url) != nil {
                 return url
             }
         }
@@ -471,12 +600,24 @@ enum LottieImportService {
             return nil
         }
 
-        for case let url as URL in enumerator where fileNames.contains(url.lastPathComponent) {
-            if isRegularFile(at: url) {
+        let entries = AnySequence<URL> {
+            AnyIterator { enumerator.nextObject() as? URL }
+        }
+        return try findRepairCandidate(in: entries, names: fileNames, directory: searchDirectory)
+    }
+
+    static func findRepairCandidate(in entries: AnySequence<URL>, names: Set<String>, directory: URL) throws -> URL? {
+        for url in entries {
+            try Task.checkCancellation()
+            guard names.contains(url.lastPathComponent) else { continue }
+            if let relative = relativePath(from: url, in: directory),
+               LottieAssetResolver.fileURL(relative, in: directory) != nil,
+               LottieAssetResolver.image(at: url) != nil {
                 return url
             }
         }
 
+        try Task.checkCancellation()
         return nil
     }
 
@@ -486,53 +627,18 @@ enum LottieImportService {
         if asset.candidatePaths.contains(asset.path) {
             return asset.path
         }
-        if let pathWithDirectory = asset.candidatePaths.dropFirst().first {
-            return pathWithDirectory
-        }
         return asset.candidatePaths.first
-    }
-
-    private static func isRegularFile(at url: URL) -> Bool {
-        guard FileManager.default.fileExists(atPath: url.path),
-              let values = try? url.resourceValues(forKeys: [.isRegularFileKey]) else {
-            return false
-        }
-        return values.isRegularFile == true
-    }
-
-    private static func externalAssetPath(from asset: [String: Any]) -> String? {
-        guard let rawFileName = asset["p"] as? String,
-              !rawFileName.isEmpty,
-              asset["e"] as? Int != 1,
-              !rawFileName.hasPrefix("data:"),
-              URL(string: rawFileName)?.scheme == nil else {
-            return nil
-        }
-
-        let rawDirectory = asset["u"] as? String ?? ""
-        let joinedPath: String
-        if rawDirectory.isEmpty {
-            joinedPath = rawFileName
-        } else {
-            joinedPath = (rawDirectory as NSString).appendingPathComponent(rawFileName)
-        }
-        return safeRelativePath(joinedPath)
     }
 
     private static func withSecurityScopedAccess<T>(
         to url: URL,
         _ work: () throws -> T
     ) throws -> T {
-        let isLocal = url.path.contains(FileManager.documentsDirectory().path)
-            || url.path.contains(Bundle.main.bundlePath)
-            || (url.isFileURL && FileManager.default.fileExists(atPath: url.path))
-            || FileManager.default.isReadableFile(atPath: url.path)
-        let hasAccess = isLocal || url.startAccessingSecurityScopedResource()
-        guard hasAccess else {
-            throw LottieImportError.accessDenied
-        }
+        // False also occurs for sandbox-owned URLs. Always request the grant;
+        // let the read report permission failures, and release only acquired grants.
+        let hasAccess = url.startAccessingSecurityScopedResource()
         defer {
-            if !isLocal {
+            if hasAccess {
                 url.stopAccessingSecurityScopedResource()
             }
         }
@@ -544,20 +650,9 @@ enum LottieImportService {
             .appendingPathComponent(importsDirectoryName, isDirectory: true)
         try FileManager.default.createDirectory(at: importsURL, withIntermediateDirectories: true)
 
-        let baseName = safeBaseName(for: sourceURL)
-        var destination = importsURL.appendingPathComponent(
-            "\(baseName).flippiepackage",
-            isDirectory: true
+        return importsURL.appendingPathComponent(
+            "\(safeBaseName(for: sourceURL))-\(UUID().uuidString).flippiepackage", isDirectory: true
         )
-        var suffix = 2
-        while FileManager.default.fileExists(atPath: destination.path) {
-            destination = importsURL.appendingPathComponent(
-                "\(baseName)-\(suffix).flippiepackage",
-                isDirectory: true
-            )
-            suffix += 1
-        }
-        return destination
     }
 
     private static func safeBaseName(for sourceURL: URL) -> String {
@@ -569,38 +664,8 @@ enum LottieImportService {
                 with: "-",
                 options: .regularExpression
             )
-        return sanitizedName.isEmpty ? "animation" : sanitizedName
-    }
-
-    private static func safeRelativePath(_ rawPath: String) -> String? {
-        let normalizedPath = rawPath
-            .replacingOccurrences(of: "\\", with: "/")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !normalizedPath.isEmpty,
-              !normalizedPath.hasPrefix("/"),
-              !normalizedPath.hasPrefix("~"),
-              URL(string: normalizedPath)?.scheme == nil else {
-            return nil
-        }
-
-        let components = normalizedPath
-            .split(separator: "/", omittingEmptySubsequences: true)
-            .map(String.init)
-        guard !components.isEmpty,
-              components.allSatisfy({ $0 != "." && $0 != ".." }) else {
-            return nil
-        }
-        return components.joined(separator: "/")
-    }
-
-    private static func appendingRelativePath(_ relativePath: String, to baseURL: URL) -> URL {
-        relativePath
-            .split(separator: "/", omittingEmptySubsequences: true)
-            .map(String.init)
-            .reduce(baseURL) { url, component in
-                url.appendingPathComponent(component)
-            }
+        // Leave room for UUIDs/extensions, including two-byte Cyrillic names.
+        return sanitizedName.isEmpty ? "animation" : String(sanitizedName.prefix(80))
     }
 
     private static func makeReport(
@@ -611,7 +676,9 @@ enum LottieImportService {
         animationURL: URL,
         manifestURL: URL?,
         selectedAnimationPath: String?,
-        copiedAssets: [String: URL]
+        copiedAssets: [String: URL],
+        animations: [LottiePackageAnimation] = [],
+        warnings: [String] = []
     ) -> LottieImportReport {
         let root = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
         let assets = root["assets"] as? [[String: Any]] ?? []
@@ -637,7 +704,8 @@ enum LottieImportService {
             selectedAnimationPath: selectedAnimationPath,
             packageFileCount: packageSummary.fileCount,
             packageSizeBytes: packageSummary.sizeBytes,
-            imageAssets: imageAssets
+            imageAssets: imageAssets,
+            animations: animations, warnings: warnings
         )
     }
 
@@ -647,79 +715,23 @@ enum LottieImportService {
         packageURL: URL,
         copiedAssets: [String: URL]
     ) -> LottieImportAssetReport {
-        let assetID = asset["id"] as? String
-        let rawName = asset["p"] as? String ?? ""
-        let rawDirectory = asset["u"] as? String ?? ""
-        let displayPath = rawDirectory.isEmpty
-            ? rawName
-            : (rawDirectory as NSString).appendingPathComponent(rawName)
-        let reportID = assetID ?? "\(index)-\(displayPath)"
-
-        if rawName.hasPrefix("data:") || asset["e"] as? Int == 1 {
-            return LottieImportAssetReport(
-                id: reportID,
-                assetID: assetID,
-                path: rawName.hasPrefix("data:") ? "Embedded image data" : displayPath,
-                status: .embedded,
-                resolvedURL: nil,
-                candidatePaths: [],
-                copiedFromURL: nil
-            )
-        }
-
-        if URL(string: rawName)?.scheme != nil || URL(string: rawDirectory)?.scheme != nil {
-            return LottieImportAssetReport(
-                id: reportID,
-                assetID: assetID,
-                path: displayPath,
-                status: .remoteUnsupported,
-                resolvedURL: nil,
-                candidatePaths: [],
-                copiedFromURL: nil
-            )
-        }
-
-        let candidates = imageAssetCandidatePaths(name: rawName, directory: rawDirectory)
-        let resolvedURL = candidates
-            .map { appendingRelativePath($0, to: packageURL) }
-            .first { FileManager.default.fileExists(atPath: $0.path) }
-        let copiedFromURL = candidates.compactMap { copiedAssets[$0] }.first
-
-        return LottieImportAssetReport(
-            id: reportID,
-            assetID: assetID,
-            path: displayPath,
-            status: resolvedURL == nil ? .missing : .resolved,
-            resolvedURL: resolvedURL,
-            candidatePaths: candidates,
-            copiedFromURL: copiedFromURL
+        let resolution = LottieAssetResolver.resolve(
+            name: asset["p"] as? String ?? "", directory: asset["u"] as? String ?? "",
+            baseURL: packageURL, assetID: asset["id"] as? String
         )
-    }
-
-    private static func imageAssetCandidatePaths(name: String, directory: String) -> [String] {
-        let rawCandidates = [
-            name,
-            directory.isEmpty ? name : (directory as NSString).appendingPathComponent(name),
-            ("images" as NSString).appendingPathComponent(name),
-            ("i" as NSString).appendingPathComponent(name),
-            ("assets" as NSString).appendingPathComponent(name),
-        ]
-
-        var result: [String] = []
-        var seen = Set<String>()
-        for candidate in rawCandidates {
-            guard let safePath = safeRelativePath(candidate),
-                  seen.insert(safePath).inserted else { continue }
-            result.append(safePath)
-        }
-        return result
+        return LottieImportAssetReport(
+            id: resolution.assetID ?? "\(index)-\(resolution.path)",
+            assetID: resolution.assetID, path: resolution.path, status: resolution.status,
+            resolvedURL: resolution.url, candidatePaths: resolution.candidatePaths,
+            copiedFromURL: resolution.candidatePaths.compactMap { copiedAssets[$0] }.first
+        )
     }
 
     private static func packageFileSummary(at packageURL: URL) -> (fileCount: Int, sizeBytes: Int) {
         guard let enumerator = FileManager.default.enumerator(
             at: packageURL,
             includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
-            options: [.skipsHiddenFiles]
+            options: []
         ) else {
             return (0, 0)
         }
@@ -736,15 +748,15 @@ enum LottieImportService {
     }
 
     private static func relativePath(from fileURL: URL, in directoryURL: URL) -> String? {
-        let directoryPath = directoryURL.standardizedFileURL.path
+        let directoryPath = directoryURL.standardizedFileURL.path + "/"
         let filePath = fileURL.standardizedFileURL.path
         guard filePath.hasPrefix(directoryPath) else { return nil }
-        let relative = filePath.dropFirst(directoryPath.count)
-        return relative.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return String(filePath.dropFirst(directoryPath.count))
     }
 
     private static func number(_ value: Any?) -> Double? {
         if let value = value as? NSNumber {
+            guard CFGetTypeID(value) != CFBooleanGetTypeID() else { return nil }
             return value.doubleValue
         }
         if let value = value as? Double {
@@ -754,6 +766,121 @@ enum LottieImportService {
             return Double(value)
         }
         return nil
+    }
+
+    private static func cancellableWork<T: Sendable>(
+        _ work: @escaping @Sendable () throws -> T
+    ) async throws -> T {
+        try Task.checkCancellation()
+        let task = Task.detached(priority: .userInitiated) { try work() }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private static func readBounded(_ url: URL, limit: Int) throws -> Data {
+        try Task.checkCancellation()
+        if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > limit {
+            throw LottieImportError.fileTooLarge
+        }
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var data = Data()
+        while true {
+            try Task.checkCancellation()
+            let chunk = try handle.read(upToCount: min(65536, limit - data.count + 1)) ?? Data()
+            if chunk.isEmpty { break }
+            guard chunk.count <= limit - data.count else { throw LottieImportError.fileTooLarge }
+            data.append(chunk)
+        }
+        return data
+    }
+
+    private static func checkPackageBudget(_ url: URL) throws {
+        _ = try remainingPackageBudget(at: url, limit: maximumExpandedArchiveSize)
+    }
+
+    private static func remainingPackageBudget(at url: URL, limit: Int) throws -> Int {
+        let bytes = packageFileSummary(at: url).sizeBytes
+        guard bytes <= limit else {
+            throw LottieImportError.fileTooLarge
+        }
+        return limit - bytes
+    }
+
+    private static func copyOwnedAsset(from source: URL, to destination: URL, path: String, remainingBudget: inout Int) throws {
+        try Task.checkCancellation()
+        guard !FileManager.default.fileExists(atPath: destination.path) else {
+            throw LottieImportError.resourceCollision(path)
+        }
+        // Bound the actual read against remaining capacity BEFORE creating/writing
+        // a file; repeated references cannot exceed the package's disk budget.
+        let data = try readBounded(source, limit: min(maximumJSONSize, remainingBudget))
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Task.checkCancellation()
+        try data.write(to: destination, options: .atomic)
+        remainingBudget -= data.count
+    }
+
+    /// Keep extracted JSON byte-for-byte; only the owned playback copy gets
+    /// canonical package-relative image paths (also usable by the SVG fallback).
+    private static func portableAnimationData(_ data: Data, sourceURL: URL, packageURL: URL) throws -> Data {
+        guard var root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              var assets = root["assets"] as? [[String: Any]] else { return data }
+        var changed = false
+        for index in assets.indices {
+            try Task.checkCancellation()
+            let name = assets[index]["p"] as? String ?? ""
+            let directory = assets[index]["u"] as? String ?? ""
+            guard !name.hasPrefix("data:"), URL(string: name)?.scheme == nil,
+                  URL(string: directory)?.scheme == nil, !name.hasPrefix("/"),
+                  !directory.hasPrefix("/"), !name.contains("\0"), !directory.contains("\0") else { continue }
+            let resolution = LottieAssetResolver.resolve(name: name, directory: directory, baseURL: packageURL)
+            let exact = resolution.candidatePaths.first.flatMap { LottieAssetResolver.fileURL($0, in: packageURL) }
+            var resolved = exact.flatMap { LottieAssetResolver.image(at: $0) == nil ? nil : $0 }
+            var missingRelativeTarget: URL?
+            if resolved == nil {
+                let relativeURL = sourceURL.deletingLastPathComponent()
+                    .appendingPathComponent(directory.isEmpty ? name : directory + "/" + name).standardizedFileURL
+                if let relative = relativePath(from: relativeURL, in: packageURL),
+                   let contained = LottieAssetResolver.fileURL(relative, in: packageURL) {
+                    missingRelativeTarget = contained
+                    if LottieAssetResolver.image(at: contained) != nil { resolved = contained }
+                }
+            }
+            resolved = resolved ?? resolution.url
+            let currentPath = LottieAssetResolver.safeRelativePath(directory.isEmpty ? name : directory + "/" + name)
+            let target = resolved ?? (currentPath == nil ? missingRelativeTarget : nil)
+            guard let target, let relative = relativePath(from: target, in: packageURL) else { continue }
+            if currentPath != relative {
+                assets[index]["u"] = (relative as NSString).deletingLastPathComponent.isEmpty
+                    ? "" : (relative as NSString).deletingLastPathComponent + "/"
+                assets[index]["p"] = target.lastPathComponent
+                changed = true
+            }
+        }
+        guard changed else { return data }
+        root["assets"] = assets
+        return try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
+    }
+
+    private static func validateNumbers(in value: Any, depth: Int, visited: inout Int) throws {
+        visited += 1
+        guard depth <= 128, visited <= 500_000 else { throw LottieImportError.numericLimitExceeded }
+        if visited % 1024 == 0 { try Task.checkCancellation() }
+        if let dictionary = value as? [String: Any] {
+            for child in dictionary.values {
+                try validateNumbers(in: child, depth: depth + 1, visited: &visited)
+            }
+        } else if let array = value as? [Any] {
+            for child in array { try validateNumbers(in: child, depth: depth + 1, visited: &visited) }
+        } else if let number = value as? NSNumber {
+            guard number.doubleValue.isFinite, abs(number.doubleValue) <= 1_000_000_000 else {
+                throw LottieImportError.numericLimitExceeded
+            }
+        }
     }
 }
 
@@ -765,19 +892,33 @@ private enum DotLottieZipReader {
     static func extract(_ data: Data, to destinationURL: URL) throws {
         let entries = try readEntries(from: data)
         var expandedSize = 0
+        var paths = Set<String>()
 
-        for entry in entries where !entry.path.hasSuffix("/") {
+        for entry in entries {
+            try Task.checkCancellation()
             guard let safePath = LottieImportServiceSafePath(entry.path) else {
                 throw LottieImportError.unsafeArchivePath(entry.path)
             }
-            expandedSize += entry.uncompressedSize
-            guard expandedSize <= 300 * 1_024 * 1_024 else {
+            guard paths.insert(safePath.components.joined(separator: "/").lowercased()).inserted else {
+                throw LottieImportError.invalidArchive
+            }
+            let remainingBudget = 300 * 1_024 * 1_024 - expandedSize
+            guard entry.uncompressedSize <= remainingBudget else {
                 throw LottieImportError.archiveEntryTooLarge(entry.path)
             }
 
-            let fileData = try extract(entry, from: data)
+            let fileData = try extract(entry, from: data, remainingBudget: remainingBudget)
             guard fileData.count == entry.uncompressedSize else {
                 throw LottieImportError.invalidArchive
+            }
+            let checksum = fileData.withUnsafeBytes {
+                UInt32(crc32(0, $0.bindMemory(to: Bytef.self).baseAddress, uInt(fileData.count)))
+            }
+            guard checksum == entry.crc else { throw LottieImportError.invalidArchive }
+            expandedSize += fileData.count
+            if entry.path.hasSuffix("/") {
+                guard fileData.isEmpty else { throw LottieImportError.invalidArchive }
+                continue
             }
 
             let fileURL = safePath.components.reduce(destinationURL) { url, component in
@@ -787,6 +928,7 @@ private enum DotLottieZipReader {
                 at: fileURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
+            try Task.checkCancellation()
             try fileData.write(to: fileURL, options: .atomic)
         }
     }
@@ -799,8 +941,13 @@ private enum DotLottieZipReader {
 
         let entryCount = Int(data.uint16LE(at: eocdOffset + 10))
         let centralDirectoryOffset = Int(data.uint32LE(at: eocdOffset + 16))
-        guard centralDirectoryOffset >= 0,
-              centralDirectoryOffset < data.count else {
+        let centralDirectorySize = Int(data.uint32LE(at: eocdOffset + 12))
+        guard data.uint16LE(at: eocdOffset + 4) == 0,
+              data.uint16LE(at: eocdOffset + 6) == 0,
+              data.uint16LE(at: eocdOffset + 8) == entryCount,
+              eocdOffset + 22 + Int(data.uint16LE(at: eocdOffset + 20)) == data.count,
+              entryCount > 0, entryCount <= 10000,
+              centralDirectoryOffset + centralDirectorySize == eocdOffset else {
             throw LottieImportError.invalidArchive
         }
 
@@ -809,12 +956,15 @@ private enum DotLottieZipReader {
         entries.reserveCapacity(entryCount)
 
         for _ in 0..<entryCount {
-            guard cursor + 46 <= data.count,
+            try Task.checkCancellation()
+            guard cursor + 46 <= eocdOffset,
                   data.uint32LE(at: cursor) == centralDirectoryHeaderSignature else {
                 throw LottieImportError.invalidArchive
             }
 
             let compressionMethod = Int(data.uint16LE(at: cursor + 10))
+            let flags = data.uint16LE(at: cursor + 8)
+            let checksum = data.uint32LE(at: cursor + 16)
             let compressedSize32 = data.uint32LE(at: cursor + 20)
             let uncompressedSize32 = data.uint32LE(at: cursor + 24)
             let fileNameLength = Int(data.uint16LE(at: cursor + 28))
@@ -822,7 +972,10 @@ private enum DotLottieZipReader {
             let commentLength = Int(data.uint16LE(at: cursor + 32))
             let localHeaderOffset32 = data.uint32LE(at: cursor + 42)
 
-            guard compressedSize32 != UInt32.max,
+            let fileType = (data.uint32LE(at: cursor + 38) >> 16) & 0o170000
+            guard flags & 0x0041 == 0, data.uint16LE(at: cursor + 34) == 0,
+                  fileType == 0 || fileType == 0o100000 || fileType == 0o040000,
+                  compressedSize32 != UInt32.max,
                   uncompressedSize32 != UInt32.max,
                   localHeaderOffset32 != UInt32.max else {
                 throw LottieImportError.invalidArchive
@@ -830,7 +983,7 @@ private enum DotLottieZipReader {
 
             let nameStart = cursor + 46
             let nameEnd = nameStart + fileNameLength
-            guard nameEnd <= data.count else {
+            guard nameEnd + extraLength + commentLength <= eocdOffset else {
                 throw LottieImportError.invalidArchive
             }
             guard let path = String(data: data[nameStart..<nameEnd], encoding: .utf8) else {
@@ -842,16 +995,18 @@ private enum DotLottieZipReader {
                 compressionMethod: compressionMethod,
                 compressedSize: Int(compressedSize32),
                 uncompressedSize: Int(uncompressedSize32),
-                localHeaderOffset: Int(localHeaderOffset32)
+                localHeaderOffset: Int(localHeaderOffset32),
+                flags: flags, crc: checksum, centralDirectoryOffset: centralDirectoryOffset
             ))
 
             cursor = nameEnd + extraLength + commentLength
         }
 
+        guard cursor == eocdOffset else { throw LottieImportError.invalidArchive }
         return entries
     }
 
-    private static func extract(_ entry: Entry, from data: Data) throws -> Data {
+    private static func extract(_ entry: Entry, from data: Data, remainingBudget: Int) throws -> Data {
         let localOffset = entry.localHeaderOffset
         guard localOffset + 30 <= data.count,
               data.uint32LE(at: localOffset) == localFileHeaderSignature else {
@@ -864,18 +1019,33 @@ private enum DotLottieZipReader {
         let dataEnd = dataStart + entry.compressedSize
         guard dataStart >= 0,
               dataEnd >= dataStart,
-              dataEnd <= data.count else {
+              dataEnd <= entry.centralDirectoryOffset,
+              data.uint16LE(at: localOffset + 6) == entry.flags,
+              data.uint16LE(at: localOffset + 8) == entry.compressionMethod,
+              String(data: data[(localOffset + 30)..<(localOffset + 30 + localFileNameLength)], encoding: .utf8) == entry.path else {
             throw LottieImportError.invalidArchive
+        }
+        if entry.flags & 8 == 0 {
+            guard data.uint32LE(at: localOffset + 14) == entry.crc,
+                  data.uint32LE(at: localOffset + 18) == entry.compressedSize,
+                  data.uint32LE(at: localOffset + 22) == entry.uncompressedSize else {
+                throw LottieImportError.invalidArchive
+            }
         }
 
         let compressedData = data[dataStart..<dataEnd]
         switch entry.compressionMethod {
         case 0:
+            guard compressedData.count <= entry.uncompressedSize,
+                  compressedData.count <= remainingBudget else {
+                throw LottieImportError.archiveEntryTooLarge(entry.path)
+            }
             return Data(compressedData)
         case 8:
             return try inflateRawDeflate(
                 Data(compressedData),
                 expectedSize: entry.uncompressedSize,
+                remainingBudget: remainingBudget,
                 path: entry.path
             )
         default:
@@ -886,11 +1056,9 @@ private enum DotLottieZipReader {
     private static func inflateRawDeflate(
         _ data: Data,
         expectedSize: Int,
+        remainingBudget: Int,
         path: String
     ) throws -> Data {
-        if expectedSize == 0 {
-            return Data()
-        }
         guard !data.isEmpty else {
             throw LottieImportError.invalidArchive
         }
@@ -908,7 +1076,7 @@ private enum DotLottieZipReader {
         defer { inflateEnd(&stream) }
 
         var output = Data()
-        output.reserveCapacity(expectedSize)
+        output.reserveCapacity(min(expectedSize, 65536))
         var status: Int32 = Z_OK
         let chunkSize = max(64 * 1_024, min(max(expectedSize, 1), 1_024 * 1_024))
 
@@ -921,6 +1089,7 @@ private enum DotLottieZipReader {
             stream.avail_in = uInt(data.count)
 
             repeat {
+                try Task.checkCancellation()
                 var chunk = [UInt8](repeating: 0, count: chunkSize)
                 var produced = 0
                 chunk.withUnsafeMutableBytes { outputBuffer in
@@ -930,6 +1099,10 @@ private enum DotLottieZipReader {
                     produced = chunkSize - Int(stream.avail_out)
                 }
                 if produced > 0 {
+                    guard produced <= expectedSize - output.count,
+                          produced <= remainingBudget - output.count else {
+                        throw LottieImportError.archiveEntryTooLarge(path)
+                    }
                     output.append(contentsOf: chunk.prefix(produced))
                 }
 
@@ -939,7 +1112,7 @@ private enum DotLottieZipReader {
             } while status != Z_STREAM_END
         }
 
-        guard output.count == expectedSize else {
+        guard output.count == expectedSize, stream.avail_in == 0 else {
             throw LottieImportError.invalidArchive
         }
         return output
@@ -964,6 +1137,9 @@ private enum DotLottieZipReader {
         let compressedSize: Int
         let uncompressedSize: Int
         let localHeaderOffset: Int
+        let flags: UInt16
+        let crc: UInt32
+        let centralDirectoryOffset: Int
     }
 }
 
@@ -971,25 +1147,8 @@ private struct LottieImportServiceSafePath {
     let components: [String]
 
     init?(_ rawPath: String) {
-        let normalizedPath = rawPath
-            .replacingOccurrences(of: "\\", with: "/")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !normalizedPath.isEmpty,
-              !normalizedPath.hasPrefix("/"),
-              !normalizedPath.hasPrefix("~"),
-              URL(string: normalizedPath)?.scheme == nil else {
-            return nil
-        }
-
-        let components = normalizedPath
-            .split(separator: "/", omittingEmptySubsequences: true)
-            .map(String.init)
-        guard !components.isEmpty,
-              components.allSatisfy({ $0 != "." && $0 != ".." }) else {
-            return nil
-        }
-        self.components = components
+        guard let path = LottieAssetResolver.safeRelativePath(rawPath) else { return nil }
+        components = path.split(separator: "/").map(String.init)
     }
 }
 

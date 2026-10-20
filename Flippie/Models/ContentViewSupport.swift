@@ -1,5 +1,50 @@
 import Foundation
 import UniformTypeIdentifiers
+import SwiftUI
+
+struct LottiePackageAnimation: Identifiable, Equatable, Sendable {
+    let animationID: String
+    let title: String
+    let path: String
+
+    var id: String { path }
+}
+
+struct LottieAnimationPickerSheet: View {
+    let animations: [LottiePackageAnimation]
+    let selectedPath: String?
+    let onSelect: (String) -> Void
+    let onCancel: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List(animations) { animation in
+                Button {
+                    onSelect(animation.path)
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(animation.title.isEmpty ? animation.animationID : animation.title)
+                                .foregroundStyle(.primary)
+                            Text(animation.path).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if animation.path == selectedPath {
+                            Image(systemName: "checkmark").accessibilityLabel("Default animation")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Choose animation")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+            }
+        }
+    }
+}
 
 extension UTType {
     static let dotLottie = UTType(filenameExtension: "lottie", conformingTo: .zip)
