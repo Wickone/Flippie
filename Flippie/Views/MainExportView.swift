@@ -3,6 +3,7 @@ import SwiftUI
 struct MainExportView: View {
     @ObservedObject var document: AnimationDocument
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicType
 
     @State private var exportFormat: AnimationExportFormat = .gif
     @State private var framesPerSecond = 30
@@ -145,13 +146,13 @@ struct MainExportView: View {
 
     private var sizeSection: some View {
         settingsCard(title: "Output Size") {
-            HStack {
+            presetLayout {
                 sizePresetButton("Original") { applyOriginalSize() }
                 sizePresetButton("512 px") { applyMaximumDimension(512) }
                 sizePresetButton("1024 px") { applyMaximumDimension(1024) }
             }
 
-            HStack(spacing: 12) {
+            presetLayout {
                 dimensionField("Width", value: $exportWidth)
                 Image(systemName: "multiply")
                     .foregroundStyle(.secondary)
@@ -189,7 +190,7 @@ struct MainExportView: View {
                 Slider(value: $exportSpeed, in: 0.1...3.0, step: 0.1)
                 Text("\(exportSpeed, specifier: "%.1f")×")
                     .monospacedDigit()
-                    .frame(width: 52, alignment: .trailing)
+                    .frame(minWidth: 52, alignment: .trailing)
             }
 
             if let duration = document.metadata?.duration {
@@ -286,6 +287,12 @@ struct MainExportView: View {
         Button(title, action: action)
             .buttonStyle(.bordered)
             .controlSize(.small)
+    }
+
+    private var presetLayout: AnyLayout {
+        dynamicType.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 12))
     }
 
     private func dimensionField(

@@ -3,17 +3,22 @@ import UIKit
 
 @main
 struct FlippieApp: App {
-    init() {
-        UITabBar.appearance().barStyle = .default
-        UITabBar.appearance().isTranslucent = true
-        UITabBar.appearance().overrideUserInterfaceStyle = .light
-    }
-
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            appContent
                 .environment(\.colorScheme, .light)
                 .preferredColorScheme(.light)
         }
+    }
+
+    @ViewBuilder private var appContent: some View {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-uiTesting"),
+           ProcessInfo.processInfo.arguments.contains("-uiCompactViewport") {
+            ContentView().frame(width: 320, height: 568)
+        } else { ContentView() }
+        #else
+        ContentView()
+        #endif
     }
 }

@@ -1,56 +1,51 @@
 import SwiftUI
 
+struct FlippieScreenBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color(red: 0.12, green: 0.38, blue: 1),
+                                    Color(red: 0, green: 0.09, blue: 1),
+                                    Color(red: 0, green: 0.05, blue: 0.95)],
+                           startPoint: .topLeading, endPoint: .bottomTrailing)
+            Circle().fill(.white.opacity(0.08)).frame(width: 280, height: 280)
+                .blur(radius: 34).offset(x: -150, y: -240)
+            Circle().fill(.white.opacity(0.06)).frame(width: 220, height: 220)
+                .blur(radius: 42).offset(x: 150, y: 120)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
 struct FlippieBlinkingLogo: View {
     let size: CGFloat
+    var reduceMotionOverride: Bool? = nil
     @State private var isBlinking = false
-    @State private var blinkTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { reduceMotionOverride ?? systemReduceMotion }
 
     var body: some View {
         ZStack {
-            Image("EmptyFlippieLogo")
-                .resizable()
-                .scaledToFit()
-                .opacity(isBlinking ? 0 : 1)
-
-            Image("EmptyFlippieLogoBlink")
-                .resizable()
-                .scaledToFit()
-                .opacity(isBlinking ? 1 : 0)
+            Image("EmptyFlippieLogo").resizable().scaledToFit().opacity(isBlinking ? 0 : 1)
+            Image("EmptyFlippieLogoBlink").resizable().scaledToFit().opacity(isBlinking ? 1 : 0)
         }
         .frame(width: size, height: size)
-        .transaction { transaction in
-            transaction.animation = nil
-        }
-        .onAppear {
-            guard blinkTask == nil else { return }
-            blinkTask = Task {
-                while !Task.isCancelled {
-                    let pause = UInt64(Double.random(in: 2.4...4.8) * 1_000_000_000)
-                    try? await Task.sleep(nanoseconds: pause)
-                    guard !Task.isCancelled else { break }
-
-                    await MainActor.run {
-                        withTransaction(Transaction(animation: nil)) {
-                            isBlinking = true
-                        }
-                    }
-
-                    try? await Task.sleep(nanoseconds: 140_000_000)
-                    guard !Task.isCancelled else { break }
-
-                    await MainActor.run {
-                        withTransaction(Transaction(animation: nil)) {
-                            isBlinking = false
-                        }
-                    }
-                }
+        .transaction { $0.animation = nil }
+        .task(id: reduceMotion) {
+            isBlinking = false
+            guard !reduceMotion else { return }
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(Double.random(in: 2.4...4.8)))
+                    try Task.checkCancellation()
+                    isBlinking = true
+                    try await Task.sleep(for: .milliseconds(140))
+                    try Task.checkCancellation()
+                    isBlinking = false
+                } catch { return }
             }
         }
-        .onDisappear {
-            blinkTask?.cancel()
-            blinkTask = nil
-            isBlinking = false
-        }
+        .onDisappear { isBlinking = false }
     }
 }
 
@@ -118,51 +113,6 @@ struct SkipControlIcon: View {
 }
 
 extension View {
-    @ViewBuilder
-    func lightTabGlassBackground<S: Shape>(shape: S) -> some View {
-        if #available(iOS 26.0, *) {
-            self
-                .glassEffect(
-                    .regular
-                        .tint(Color(red: 0.82, green: 0.87, blue: 1.0).opacity(0.86))
-                        .interactive(),
-                    in: shape
-                )
-        } else {
-            self
-                .background {
-                    shape
-                        .fill(Color(red: 0.82, green: 0.87, blue: 1.0).opacity(0.88))
-                }
-                .overlay {
-                    shape
-                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                }
-        }
-    }
-
-    @ViewBuilder
-    func selectedTabGlassBackground<S: Shape>(isSelected: Bool, shape: S) -> some View {
-        if isSelected {
-            if #available(iOS 26.0, *) {
-                self
-                    .glassEffect(
-                        .regular
-                            .tint(Color.white.opacity(0.42))
-                            .interactive(),
-                        in: shape
-                    )
-            } else {
-                self
-                    .background {
-                        shape
-                            .fill(Color.white.opacity(0.28))
-                    }
-            }
-        } else {
-            self
-        }
-    }
 
     @ViewBuilder
     func liquidGlassBackground<S: Shape>(shape: S, cornerRadius: CGFloat) -> some View {

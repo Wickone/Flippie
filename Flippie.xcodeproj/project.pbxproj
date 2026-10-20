@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		900000000000000000000010 /* NativeInterfaceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000011; };
+		900000000000000000000005 /* LoadedPreviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000006; };
+		900000000000000000000003 /* NativePreviewTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000004; };
+		900000000000000000000001 /* NativeInterfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 900000000000000000000002; };
 		8F0000000000000000000001 /* FlippieProject.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0000000000000000000002; };
 		8F0000000000000000000003 /* ProjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0000000000000000000004; };
 		8F0000000000000000000005 /* ProjectPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0000000000000000000006; };
@@ -55,6 +59,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		900000000000000000000012 = {isa = PBXContainerItemProxy; containerPortal = 1A2B3C4D5E6F7G8H9I0J1K22; proxyType = 1; remoteGlobalIDString = 1A2B3C4D5E6F7G8H9I0J1K29; remoteInfo = Flippie; };
 		2B3C4D5E6F7G8H9I0J1K2L0B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1A2B3C4D5E6F7G8H9I0J1K22 /* Project object */;
@@ -65,6 +70,11 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		900000000000000000000011 /* NativeInterfaceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeInterfaceUITests.swift; sourceTree = "<group>"; };
+		900000000000000000000013 /* FlippieUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = FlippieUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		900000000000000000000006 /* LoadedPreviewScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadedPreviewScreen.swift; sourceTree = "<group>"; };
+		900000000000000000000004 /* NativePreviewTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePreviewTabs.swift; sourceTree = "<group>"; };
+		900000000000000000000002 /* NativeInterfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeInterfaceTests.swift; sourceTree = "<group>"; };
 		8F0000000000000000000002 /* FlippieProject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlippieProject.swift; sourceTree = "<group>"; };
 		8F0000000000000000000004 /* ProjectStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectStore.swift; sourceTree = "<group>"; };
 		8F0000000000000000000006 /* ProjectPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectPersistenceTests.swift; sourceTree = "<group>"; };
@@ -134,11 +144,13 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		900000000000000000000014 /* FlippieUITests */ = {isa = PBXGroup; children = (900000000000000000000011,); path = FlippieUITests; sourceTree = "<group>"; };
 		1A2B3C4D5E6F7G8H9I0J1K21 = {
 			isa = PBXGroup;
 			children = (
 				1A2B3C4D5E6F7G8H9I0J1K2C /* Flippie */,
 				2B3C4D5E6F7G8H9I0J1K2L09 /* FlippieTests */,
+				900000000000000000000014 /* FlippieUITests */,
 				1A2B3C4D5E6F7G8H9I0J1K2B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -148,6 +160,7 @@
 			children = (
 				1A2B3C4D5E6F7G8H9I0J1K2A /* Flippie.app */,
 				2B3C4D5E6F7G8H9I0J1K2L05 /* FlippieTests.xctest */,
+				900000000000000000000013 /* FlippieUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -186,6 +199,8 @@
 		1A2B3C4D5E6F7G8H9I0J1K31 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				900000000000000000000004 /* NativePreviewTabs.swift */,
+				900000000000000000000006 /* LoadedPreviewScreen.swift */,
 				2B3C4D5E6F7G8H9I0J1K2L10 /* Legacy */,
 				2B3C4D5E6F7G8H9I0J1K2L04 /* LottieView.swift */,
 				5E6F7G8H9I0J1K2L3M4N5O07 /* LottieWebPlayerView.swift */,
@@ -223,6 +238,7 @@
 		2B3C4D5E6F7G8H9I0J1K2L09 /* FlippieTests */ = {
 			isa = PBXGroup;
 			children = (
+				900000000000000000000002 /* NativeInterfaceTests.swift */,
 				8C0000000000000000000006 /* PlaybackSessionTests.swift */,
 				8D0000000000000000000004 /* PlaybackTimelineTests.swift */,
 				8E0000000000000000000002 /* ExportFidelityTests.swift */,
@@ -268,6 +284,17 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		900000000000000000000015 /* FlippieUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 900000000000000000000016;
+			buildPhases = (900000000000000000000017,);
+			buildRules = ();
+			dependencies = (900000000000000000000018,);
+			name = FlippieUITests;
+			productName = FlippieUITests;
+			productReference = 900000000000000000000013;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		1A2B3C4D5E6F7G8H9I0J1K29 /* Flippie */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1A2B3C4D5E6F7G8H9I0J1K2E /* Build configuration list for PBXNativeTarget "Flippie" */;
@@ -319,6 +346,7 @@
 				LastSwiftUpdateCheck = 1540;
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
+					900000000000000000000015 = {CreatedOnToolsVersion = 27.1; TestTargetID = 1A2B3C4D5E6F7G8H9I0J1K29; };
 					1A2B3C4D5E6F7G8H9I0J1K29 = {
 						CreatedOnToolsVersion = 15.4;
 					};
@@ -344,6 +372,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				900000000000000000000015 /* FlippieUITests */,
 				1A2B3C4D5E6F7G8H9I0J1K29 /* Flippie */,
 				2B3C4D5E6F7G8H9I0J1K2L3M4 /* FlippieTests */,
 			);
@@ -381,10 +410,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		900000000000000000000017 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (900000000000000000000010,); runOnlyForDeploymentPostprocessing = 0; };
 		1A2B3C4D5E6F7G8H9I0J1K26 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				900000000000000000000003 /* NativePreviewTabs.swift in Sources */,
+				900000000000000000000005 /* LoadedPreviewScreen.swift in Sources */,
 				1A2B3C4D5E6F7G8H9I0J1K2N /* ContentView.swift in Sources */,
 				2B3C4D5E6F7G8H9I0J1K2L01 /* LottieView.swift in Sources */,
 				1A2B3C4D5E6F7G8H9I0J1K34 /* BundledAnimationsView.swift in Sources */,
@@ -413,6 +445,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				900000000000000000000001 /* NativeInterfaceTests.swift in Sources */,
 				2B3C4D5E6F7G8H9I0J1K2L02 /* FlippieSmokeTests.swift in Sources */,
 				8B0000000000000000000001 /* LottieImportTests.swift in Sources */,
 				8C0000000000000000000005 /* PlaybackSessionTests.swift in Sources */,
@@ -426,6 +459,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		900000000000000000000018 = {isa = PBXTargetDependency; target = 1A2B3C4D5E6F7G8H9I0J1K29; targetProxy = 900000000000000000000012; };
 		2B3C4D5E6F7G8H9I0J1K2L0C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 1A2B3C4D5E6F7G8H9I0J1K29 /* Flippie */;
@@ -434,6 +468,28 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		900000000000000000000019 = {isa = XCBuildConfiguration; name = Debug; buildSettings = {
+			CODE_SIGN_STYLE = Automatic;
+			GENERATE_INFOPLIST_FILE = YES;
+			IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+			PRODUCT_BUNDLE_IDENTIFIER = com.flippie.app.uitests;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = "1,2";
+			TEST_TARGET_NAME = Flippie;
+		}; };
+		90000000000000000000001A = {isa = XCBuildConfiguration; name = Release; buildSettings = {
+			CODE_SIGN_STYLE = Automatic;
+			GENERATE_INFOPLIST_FILE = YES;
+			IPHONEOS_DEPLOYMENT_TARGET = 17.5;
+			PRODUCT_BUNDLE_IDENTIFIER = com.flippie.app.uitests;
+			PRODUCT_NAME = "$(TARGET_NAME)";
+			SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+			SWIFT_VERSION = 5.0;
+			TARGETED_DEVICE_FAMILY = "1,2";
+			TEST_TARGET_NAME = Flippie;
+		}; };
 		1A2B3C4D5E6F7G8H9I0J1K2F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -571,7 +627,7 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -602,7 +658,7 @@
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIUserInterfaceStyle = Light;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -654,6 +710,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		900000000000000000000016 = {isa = XCConfigurationList; buildConfigurations = (900000000000000000000019,90000000000000000000001A,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		1A2B3C4D5E6F7G8H9I0J1K25 /* Build configuration list for PBXProject "Flippie" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

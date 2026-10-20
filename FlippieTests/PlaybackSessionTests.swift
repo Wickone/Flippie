@@ -198,6 +198,10 @@ final class PlaybackSessionTests: XCTestCase {
             XCTAssertTrue(session.player.subviews.first === engine)
             XCTAssertNotNil(preview.window, "Sheet must keep the live preview attached")
             XCTAssertTrue(session.isPlaying)
+            let before = session.player.currentProgress
+            try await Task.sleep(for: .milliseconds(180))
+            XCTAssertGreaterThan(abs(session.player.currentProgress - before), 0.01,
+                                 "The actual renderer must advance while the sheet is open")
             sheets.dismiss()
             let dismissed = await eventually { host.presentedViewController == nil }
             XCTAssertTrue(dismissed)

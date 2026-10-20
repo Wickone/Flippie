@@ -11,10 +11,13 @@ struct ContentView: View {
     @StateObject private var sheets: SheetCoordinator
     @StateObject private var persistence: ProjectPersistenceCoordinator
     private let persistenceEnabled: Bool
-    @State private var didAttemptRestore = false
-    @State private var restoreTask: Task<Void, Never>?
+    @State private var didPrepareLaunch = false
+    @State private var launchTask: Task<Void, Never>?
     @State private var canRecoverSavedProject = false
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicType
+    @State private var showingProfileInfo = false
     @State private var showingFileImporter = false
     @State private var fileImportMode: FileImportMode = .animation
     @State private var showingAlert = false
@@ -34,7 +37,6 @@ struct ContentView: View {
     @State private var previousControlAnimationTick = 0
     @State private var playControlAnimationTick = 0
     @State private var nextControlAnimationTick = 0
-    @State private var loadedTabSelection: LoadedActionTab = .preview
     
     init(document: AnimationDocument? = nil, session: PlaybackSession? = nil, sheets: SheetCoordinator? = nil,
          persistence: ProjectPersistenceCoordinator? = nil) {
@@ -42,7 +44,12 @@ struct ContentView: View {
         _session = StateObject(wrappedValue: session ?? PlaybackSession())
         _sheets = StateObject(wrappedValue: sheets ?? SheetCoordinator())
         _persistence = StateObject(wrappedValue: persistence ?? ProjectPersistenceCoordinator())
-        persistenceEnabled = persistence != nil || (document == nil && session == nil)
+        #if DEBUG
+        let uiTesting = ProcessInfo.processInfo.arguments.contains("-uiTesting")
+        #else
+        let uiTesting = false
+        #endif
+        persistenceEnabled = !uiTesting && (persistence != nil || (document == nil && session == nil))
     }
 
     private var animationView: VersionedLottiePlayerView { session.player }
@@ -370,314 +377,23 @@ struct ContentView: View {
         loadedEditorScreen
     }
 
-    private var flippieNavigationLogo: some View {
-        HStack(alignment: .top, spacing: 3) {
-            Text("flippie")
-                .font(.system(size: 30, weight: .black, design: .rounded))
-                .kerning(-0.8)
-
-            Image(systemName: "play.fill")
-                .font(.system(size: 8, weight: .black))
-                .offset(y: 7)
-        }
-        .foregroundStyle(.white.opacity(0.92))
-        .accessibilityLabel("Flippie")
-    }
-
-    @ViewBuilder
     private var loadedEditorScreen: some View {
-        loadedPreviewTabContent
-    }
-
-    private var loadedPreviewTabContent: some View {
-        GeometryReader { proxy in
-            let width = proxy.size.width
-            let height = proxy.size.height
-            let scale = width / 393
-            let previewWidth = min(width - 32, 361 * scale)
-            let previewHeight = min(362 * scale, height * 0.46)
-            let previewTop = 132 * scale
-            let previewCenterY = previewTop + (previewHeight / 2)
-            let infoCenterY = previewTop + previewHeight + (22 * scale)
-            let controlsCenterY = previewTop + previewHeight + (132 * scale)
-            let tabBarWidth = min(width - (88 * scale), 288 * scale)
-            let tabBarHeight = 64 * scale
-            let tabBarCenterY = height - proxy.safeAreaInsets.bottom - (88 * scale)
-            ZStack {
-                emptyScreenBackground
-                    .ignoresSafeArea()
-
-                loadedBackButton
-                    .position(x: 38 * scale, y: 84 * scale)
-
-                loadedProfileButton
-                    .position(x: width - (38 * scale), y: 84 * scale)
-
-                flippieNavigationLogo
-                    .position(x: width / 2, y: 88 * scale)
-
-                loadedPreviewCard(width: previewWidth, height: previewHeight, scale: scale)
-                    .position(x: width / 2, y: previewCenterY)
-
-                animationInfoPill
-                    .position(x: width / 2, y: infoCenterY)
-
-                loadedPlaybackControls(scale: scale)
-                    .position(x: width / 2, y: controlsCenterY)
-
-                loadedGlassTabBar(width: tabBarWidth, height: tabBarHeight, scale: scale)
-                    .position(x: width / 2, y: tabBarCenterY)
-            }
-            .ignoresSafeArea()
+        NativePreviewTabs(onCommand: handleNativeLoadedTabSelection) {
+            LoadedPreviewScreen(document: document, session: session,
+                reservedBottomSpace: NativePreviewPlacement.lift(for: UIDevice.current.userInterfaceIdiom),
+                onBack: { softHaptic(); closeCurrentAnimation() },
+                onProfile: showProfile,
+                onSettings: { softHaptic(); sheets.present(.playbackSettings) },
+                onPlay: togglePlayback, onPrevious: previousFrame, onNext: nextFrame)
         }
         .ignoresSafeArea()
     }
 
-    private var loadedBackButton: some View {
-        Button {
-            softHaptic()
-            closeCurrentAnimation()
-        } label: {
-            Image(systemName: "chevron.left")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(Color(red: 0.02, green: 0.02, blue: 0.10))
-                .frame(width: 36, height: 36)
-                .frame(width: 44, height: 44)
-                .liquidGlassBackground(shape: Circle(), cornerRadius: 22)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Back")
-    }
-
-    private var loadedProfileButton: some View {
-        Button {
-            softHaptic()
-        } label: {
-            Image(systemName: "person.crop.circle")
-                .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(Color(red: 0.02, green: 0.02, blue: 0.10))
-                .frame(width: 36, height: 36)
-                .frame(width: 44, height: 44)
-                .liquidGlassBackground(shape: Circle(), cornerRadius: 22)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Profile")
-    }
-
-    private func loadedPreviewCard(width: CGFloat, height: CGFloat, scale: CGFloat) -> some View {
-        ZStack(alignment: .bottomTrailing) {
-            CheckerboardView(squareSize: 11 * scale)
-                .clipShape(RoundedRectangle(cornerRadius: 58 * scale, style: .continuous))
-
-            LottieView(animationView: animationView)
-                .padding(22 * scale)
-                .clipShape(RoundedRectangle(cornerRadius: 58 * scale, style: .continuous))
-                .allowsHitTesting(false)
-
-            if isSwitchingRuntime {
-                RoundedRectangle(cornerRadius: 58 * scale, style: .continuous)
-                    .fill(.ultraThinMaterial)
-
-                VStack(spacing: 10) {
-                    ProgressView()
-                        .tint(.white)
-                    Text("Loading \((pendingRuntime ?? document.selectedRuntime).title)…")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                }
-                .padding()
-            }
-
-            playbackSettingsMenu(scale: scale)
-                .padding(.trailing, 17 * scale)
-                .padding(.bottom, 17 * scale)
-                .zIndex(2)
-        }
-        .frame(width: width, height: height)
-        .shadow(color: Color(red: 0.0, green: 0.06, blue: 0.55).opacity(0.24), radius: 22, x: 0, y: 18)
-    }
-
-    private func playbackSettingsMenu(scale: CGFloat) -> some View {
-        Button {
-            softHaptic()
-            sheets.present(.playbackSettings)
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 17 * scale, weight: .bold))
-                .foregroundStyle(Color.black.opacity(0.90))
-                .frame(width: 44 * scale, height: 44 * scale)
-                .previewGlassBackground(shape: Circle())
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Playback settings")
-    }
-
-    private var animationInfoPill: some View {
-        Text(animationInfoText)
-            .font(.system(size: 11, weight: .regular, design: .default))
-            .foregroundStyle(.white.opacity(0.92))
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background {
-                Capsule()
-                    .fill(Color.white.opacity(0.18))
-            }
-            .overlay {
-                Capsule()
-                    .stroke(Color.white.opacity(0.45), lineWidth: 0.8)
-            }
-    }
-
-    private var animationInfoText: String {
-        guard let metadata = document.metadata else {
-            return "0/0 • 0,00s • 0 fps • Canvas 0x0"
-        }
-
-        let frame = min(Int(currentFrame.rounded()), Int(totalFrames.rounded()))
-        let total = Int(totalFrames.rounded())
-        let duration = String(format: "%.2fs", metadata.duration).replacingOccurrences(of: ".", with: ",")
-        let fps = Int(metadata.frameRate.rounded())
-        return "\(frame)/\(total) • \(duration) • \(fps) fps • Canvas \(metadata.width)x\(metadata.height)"
-    }
-
-    @ViewBuilder
-    private func loadedPlaybackControls(scale: CGFloat) -> some View {
-        if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: 32 * scale) {
-                loadedPlaybackControlsContent(scale: scale)
-            }
-        } else {
-            loadedPlaybackControlsContent(scale: scale)
-        }
-    }
-
-    private func loadedPlaybackControlsContent(scale: CGFloat) -> some View {
-        HStack(alignment: .center, spacing: 32 * scale) {
-            loadedControlButton(
-                symbol: .skipBackward,
-                size: 64 * scale,
-                symbolSize: 37 * scale,
-                animationValue: previousControlAnimationTick,
-                action: previousFrame
-            )
-
-            loadedControlButton(
-                symbol: .system(isPlaying ? "pause.fill" : "play.fill"),
-                size: 90 * scale,
-                symbolSize: 44 * scale,
-                animationValue: playControlAnimationTick,
-                action: togglePlayback
-            )
-
-            loadedControlButton(
-                symbol: .skipForward,
-                size: 64 * scale,
-                symbolSize: 37 * scale,
-                animationValue: nextControlAnimationTick,
-                action: nextFrame
-            )
-        }
-    }
-
-    private func loadedControlButton(
-        symbol: PlaybackControlSymbol,
-        size: CGFloat,
-        symbolSize: CGFloat,
-        animationValue: Int,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            action()
-        } label: {
-            Group {
-                switch symbol {
-                case .system(let systemName):
-                    Image(systemName: systemName)
-                case .skipBackward:
-                    SkipControlIcon(direction: .backward)
-                case .skipForward:
-                    SkipControlIcon(direction: .forward)
-                }
-            }
-            .font(.system(size: symbolSize, weight: .medium))
-            .foregroundStyle(.white)
-            .frame(width: symbolSize, height: symbolSize)
-            .frame(width: size, height: size)
-            .controlGlassBackground(shape: Circle())
-            .symbolEffect(.bounce, value: animationValue)
-        }
-        .buttonStyle(.plain)
-        .disabled(!hasAnimation)
-    }
-
-    private func loadedGlassTabBar(width: CGFloat, height: CGFloat, scale: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            loadedGlassTabButton(
-                tab: .preview,
-                isSelected: true,
-                scale: scale
-            ) {
-                softHaptic()
-                loadedTabSelection = .preview
-            }
-
-            loadedGlassTabButton(
-                tab: .edit,
-                isSelected: false,
-                scale: scale
-            ) {
-                handleNativeLoadedTabSelection(.edit)
-            }
-
-            loadedGlassTabButton(
-                tab: .export,
-                isSelected: false,
-                scale: scale
-            ) {
-                handleNativeLoadedTabSelection(.export)
-            }
-        }
-        .padding(5 * scale)
-        .frame(width: width, height: height)
-        .lightTabGlassBackground(shape: Capsule())
-    }
-
-    private func loadedGlassTabButton(
-        tab: LoadedActionTab,
-        isSelected: Bool,
-        scale: CGFloat,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            action()
-        } label: {
-            VStack(spacing: 3 * scale) {
-                Image(systemName: tab.systemName)
-                    .font(.system(size: 21 * scale, weight: .semibold))
-
-                Text(tab.title)
-                    .font(.system(size: 13 * scale, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(isSelected ? Color(red: 0.0, green: 0.49, blue: 1.0) : Color(red: 0.02, green: 0.02, blue: 0.10).opacity(0.88))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .selectedTabGlassBackground(isSelected: isSelected, shape: Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(tab.title)
-    }
-
     private func handleNativeLoadedTabSelection(_ tab: LoadedActionTab) {
         switch tab {
-        case .preview:
-            break
-        case .edit:
-            softHaptic()
-            sheets.present(.edit)
-        case .export:
-            softHaptic()
-            sheets.present(.export)
+        case .preview: break
+        case .edit: softHaptic(); sheets.present(.edit)
+        case .export: softHaptic(); sheets.present(.export)
         }
     }
 
@@ -686,111 +402,65 @@ struct ContentView: View {
     }
 
     private var emptyImportScreen: some View {
-        GeometryReader { proxy in
-            let bottomInset = proxy.safeAreaInsets.bottom
-            let width = proxy.size.width
-            let height = proxy.size.height
-            let designScale = width / 393
-            let compositionLift = height * 0.10
-            let cardWidth = min(width - 40, 353 * designScale)
-            let buttonHeight = max(52, 52 * designScale)
-            let greetingText = emptyGreetings[emptyGreetingIndex]
-            let buttonCenterY = height - bottomInset - compositionLift - (34 * designScale)
-            let cardHeight = min(225 * designScale, height * 0.33)
-            let cardCenterY = buttonCenterY - (buttonHeight / 2) - (18 * designScale) - (cardHeight / 2)
-            let logoSize = min(132 * designScale, width * 0.42)
-            let logoCenterX = (width / 2) + (10 * designScale)
-            let logoCenterY = height / 2
-            let greetingCenterY = max(250 * designScale, logoCenterY - (300 * designScale))
-            let waveWidth = 511 * designScale
-            let waveHeight = 534 * designScale
-            let waveCenterX = (-41 + 511 / 2) * designScale
-            let waveCenterY = height - (waveHeight / 2) + (44 * designScale) + (height * 0.05)
-
-            ZStack {
-                emptyScreenBackground
-                    .ignoresSafeArea()
-
-                emptyProfileButton
-                    .position(x: width - (38 * designScale), y: 84 * designScale)
-
-                emptyGreetingBubble(text: greetingText, scale: designScale)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .offset(x: 38 * designScale, y: greetingCenterY - (74 * designScale))
-
-                Image("EmptyBackgroundWave")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: waveWidth, height: waveHeight)
-                    .allowsHitTesting(false)
-                    .position(x: waveCenterX, y: waveCenterY)
-
-                FlippieBlinkingLogo(size: logoSize)
-                    .shadow(color: Color(red: 0.0, green: 0.18, blue: 1.0).opacity(0.22), radius: 22, x: 0, y: 18)
-                    .position(x: logoCenterX, y: logoCenterY)
-
-                emptyCopyCard
-                    .frame(width: cardWidth, height: cardHeight)
-                    .position(x: width / 2, y: cardCenterY)
-
-                emptyImportButton
-                    .frame(width: cardWidth, height: buttonHeight)
-                    .position(x: width / 2, y: buttonCenterY)
+        NavigationStack {
+            GeometryReader { proxy in
+                if !dynamicType.isAccessibilitySize && proxy.size.width < 600 && proxy.size.height > proxy.size.width {
+                    emptyPortraitContent(in: proxy)
+                } else {
+                    adaptiveEmptyContent
+                }
             }
-            .ignoresSafeArea()
+            .background(emptyScreenBackground.ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Profile", systemImage: "person.crop.circle", action: showProfile)
+                        .labelStyle(.iconOnly)
+                        .font(.system(size: 28, weight: .medium))
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
-        .ignoresSafeArea()
+        .coordinateSpace(name: "landing-layout")
+        .tint(.primary)
     }
 
-    private var emptyProfileButton: some View {
-        Button {
-            softHaptic()
-            cycleEmptyGreeting()
-        } label: {
-            Image(systemName: "person.crop.circle")
-                .font(.system(size: 28, weight: .medium))
-                .foregroundStyle(Color(red: 0.02, green: 0.02, blue: 0.10))
-                .frame(width: 36, height: 36)
-                .frame(width: 44, height: 44)
-                .liquidGlassBackground(shape: Circle(), cornerRadius: 22)
+    private func emptyPortraitContent(in proxy: GeometryProxy) -> some View {
+        let width = proxy.size.width
+        let topInset = proxy.frame(in: .named("landing-layout")).minY
+        let height = proxy.size.height + topInset + proxy.safeAreaInsets.bottom
+        let scale = max(1, width) / 393
+        let cardWidth = max(0, width - 40)
+        let buttonHeight = max(52, 52 * scale)
+        let buttonCenterY = height * 0.9 - 34 * scale
+        let cardHeight = min(225 * scale, height * 0.33)
+        let cardCenterY = buttonCenterY - buttonHeight / 2 - 18 * scale - cardHeight / 2
+        return ZStack {
+            emptyGreetingBubble(text: emptyGreetings[emptyGreetingIndex], scale: scale)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .offset(x: 38 * scale, y: max(250 * scale, height / 2 - 300 * scale) - 74 * scale - topInset)
+            Image("EmptyBackgroundWave")
+                .resizable().scaledToFill()
+                .frame(width: 511 * scale, height: 534 * scale)
+                .position(x: (-41 + 511 / 2) * scale,
+                          y: height * 1.05 - 223 * scale - topInset)
+                .allowsHitTesting(false).accessibilityHidden(true)
+            FlippieBlinkingLogo(size: min(132 * scale, width * 0.42))
+                .shadow(color: Color(red: 0, green: 0.18, blue: 1).opacity(0.22), radius: 22, x: 0, y: 18)
+                .position(x: width / 2 + 10 * scale, y: height / 2 - topInset)
+                .accessibilityHidden(true)
+            emptyPortraitCopyCard(scale: cardHeight / 225)
+                .frame(width: cardWidth, height: cardHeight)
+                .position(x: width / 2, y: cardCenterY - topInset)
+            emptyImportButton(height: buttonHeight)
+                .frame(width: cardWidth, height: buttonHeight)
+                .position(x: width / 2, y: buttonCenterY - topInset)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Profile")
-    }
-
-    private var emptyScreenBackground: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.12, green: 0.38, blue: 1.0),
-                    Color(red: 0.0, green: 0.09, blue: 1.0),
-                    Color(red: 0.0, green: 0.05, blue: 0.95)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(Color.white.opacity(0.08))
-                .frame(width: 280, height: 280)
-                .blur(radius: 34)
-                .offset(x: -150, y: -240)
-
-            Circle()
-                .fill(Color.white.opacity(0.06))
-                .frame(width: 220, height: 220)
-                .blur(radius: 42)
-                .offset(x: 150, y: 120)
-        }
+        .frame(width: width, height: proxy.size.height)
     }
 
     private func emptyGreetingBubble(text: String, scale: CGFloat) -> some View {
-        let fill = Color.white.opacity(0.08)
-        let bubbleHeight = 78 * scale
-        let horizontalPadding = 24 * scale
-        let tailSize = 40 * scale
-
-        return Button {
+        Button {
             softHaptic()
             cycleEmptyGreeting()
         } label: {
@@ -798,46 +468,23 @@ struct ContentView: View {
                 Text(text)
                     .font(.system(size: 31 * scale, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .padding(.horizontal, horizontalPadding)
-                    .frame(height: bubbleHeight)
+                    .lineLimit(1).fixedSize(horizontal: true, vertical: false)
+                    .padding(.horizontal, 24 * scale)
+                    .frame(height: 78 * scale)
                     .background {
-                        GeometryReader { proxy in
-                            let bubbleWidth = proxy.size.width
-                            let tailX = min(42 * scale, bubbleWidth * 0.34)
-
+                        GeometryReader { bubble in
                             Path { path in
-                                path.addRoundedRect(
-                                    in: CGRect(
-                                        x: 0,
-                                        y: 0,
-                                        width: bubbleWidth,
-                                        height: bubbleHeight
-                                    ),
-                                    cornerSize: CGSize(width: 34 * scale, height: 34 * scale)
-                                )
-                                path.addEllipse(
-                                    in: CGRect(
-                                        x: tailX,
-                                        y: bubbleHeight - (tailSize / 2),
-                                        width: tailSize,
-                                        height: tailSize
-                                    )
-                                )
+                                path.addRoundedRect(in: CGRect(x: 0, y: 0, width: bubble.size.width, height: 78 * scale),
+                                                    cornerSize: CGSize(width: 34 * scale, height: 34 * scale))
+                                path.addEllipse(in: CGRect(x: min(42 * scale, bubble.size.width * 0.34),
+                                                           y: 58 * scale, width: 40 * scale, height: 40 * scale))
                             }
-                            .fill(fill)
+                            .fill(.white.opacity(0.08))
                         }
                     }
-
-                Circle()
-                    .fill(fill)
-                    .frame(width: 20 * scale, height: 20 * scale)
+                Circle().fill(.white.opacity(0.08)).frame(width: 20 * scale, height: 20 * scale)
                     .offset(x: 56 * scale, y: 108 * scale)
-
-                Circle()
-                    .fill(fill)
-                    .frame(width: 10 * scale, height: 10 * scale)
+                Circle().fill(.white.opacity(0.08)).frame(width: 10 * scale, height: 10 * scale)
                     .offset(x: 71 * scale, y: 138 * scale)
             }
             .frame(height: 148 * scale, alignment: .topLeading)
@@ -848,92 +495,119 @@ struct ContentView: View {
         .accessibilityLabel("Greeting")
     }
 
-    private var emptyCopyCard: some View {
-        GeometryReader { proxy in
-            let scale = min(proxy.size.width / 353, proxy.size.height / 225)
-            let fill = Color.white.opacity(0.08)
-
+    private func emptyPortraitCopyCard(scale: CGFloat) -> some View {
+        Button {
+            softHaptic()
+            sheets.present(.bundledAnimations)
+        } label: {
             ZStack(alignment: .topLeading) {
                 Path { path in
-                    path.addRoundedRect(
-                        in: CGRect(
-                            x: 0,
-                            y: 70 * scale,
-                            width: 353 * scale,
-                            height: 155 * scale
-                        ),
-                        cornerSize: CGSize(width: 34 * scale, height: 34 * scale)
-                    )
-                    path.addEllipse(
-                        in: CGRect(
-                            x: 243 * scale,
-                            y: 50 * scale,
-                            width: 40 * scale,
-                            height: 40 * scale
-                        )
-                    )
+                    path.addRoundedRect(in: CGRect(x: 0, y: 70 * scale, width: 353 * scale, height: 155 * scale),
+                                        cornerSize: CGSize(width: 34 * scale, height: 34 * scale))
+                    path.addEllipse(in: CGRect(x: 243 * scale, y: 50 * scale, width: 40 * scale, height: 40 * scale))
                 }
-                .fill(fill)
-
-                Circle()
-                    .fill(fill)
-                    .frame(width: 20 * scale, height: 20 * scale)
+                .fill(.white.opacity(0.08))
+                Circle().fill(.white.opacity(0.08)).frame(width: 20 * scale, height: 20 * scale)
                     .position(x: 254 * scale, y: 30 * scale)
-
-                Circle()
-                    .fill(fill)
-                    .frame(width: 10 * scale, height: 10 * scale)
+                Circle().fill(.white.opacity(0.08)).frame(width: 10 * scale, height: 10 * scale)
                     .position(x: 245 * scale, y: 5 * scale)
-
                 VStack(spacing: 12 * scale) {
-                    Text(emptyTitle)
-                        .font(.system(size: 32 * scale, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.72)
-
-                    Text(emptyMessage)
-                        .font(.system(size: 14 * scale, weight: .medium, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.52))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(1.5 * scale)
-                        .lineLimit(5)
-                        .minimumScaleFactor(0.74)
+                    Text(emptyTitle).font(.system(size: 32 * scale, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white).lineLimit(1).minimumScaleFactor(0.72)
+                    Text(emptyMessage).font(.system(size: 14 * scale, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.52)).multilineTextAlignment(.center)
+                        .lineSpacing(1.5 * scale).lineLimit(5).minimumScaleFactor(0.74)
                         .fixedSize(horizontal: false, vertical: true)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            softHaptic()
-                            sheets.present(.bundledAnimations)
-                        }
                 }
                 .frame(width: 329 * scale, height: 132 * scale)
                 .offset(x: 12 * scale, y: 84 * scale)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+            .frame(width: 353 * scale, height: 225 * scale, alignment: .topLeading)
+            .contentShape(Rectangle())
         }
-        .accessibilityLabel("Choose ready-made lottie")
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("choose-bundled-animation")
     }
 
-    private var emptyImportButton: some View {
+    private var adaptiveEmptyContent: some View {
+            ScrollView {
+                VStack(spacing: 24) {
+                    Button(emptyGreetings[emptyGreetingIndex]) {
+                        softHaptic()
+                        cycleEmptyGreeting()
+                    }
+                    .font(.system(.title, design: .rounded, weight: .black))
+                    .foregroundStyle(.white)
+                    .padding(20)
+                    .background(.white.opacity(0.08), in: Capsule())
+
+                    FlippieBlinkingLogo(size: 132)
+                        .accessibilityHidden(true)
+                        .padding(.vertical, 12)
+
+                    Button {
+                        softHaptic()
+                        sheets.present(.bundledAnimations)
+                    } label: {
+                        VStack(spacing: 12) {
+                            Text(emptyTitle)
+                                .font(.system(.title, design: .rounded, weight: .heavy))
+                            Text(emptyMessage).font(.body)
+                        }
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(24)
+                        .frame(maxWidth: .infinity)
+                        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 32))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("choose-bundled-animation")
+
+                    emptyImportButton()
+                }
+                .frame(maxWidth: 560)
+                .padding(20)
+                .frame(maxWidth: .infinity)
+            }
+            .background(alignment: .bottom) {
+                Image("EmptyBackgroundWave").resizable().scaledToFit()
+                    .allowsHitTesting(false).accessibilityHidden(true)
+            }
+    }
+
+    private func showProfile() {
+        softHaptic()
+        showingProfileInfo = true
+    }
+
+    private var emptyScreenBackground: some View { FlippieScreenBackground() }
+
+
+
+    private func emptyImportButton(height: CGFloat? = nil) -> some View {
         Button {
             softHaptic()
             fileImportMode = .animation
             showingFileImporter = true
         } label: {
             Text(isImporting ? "Importing..." : "Import .JSON")
-                .font(.system(size: 24, weight: .black, design: .rounded))
+                .font(dynamicType.isAccessibilitySize ? .system(.title2, design: .rounded, weight: .black)
+                      : .system(size: 24, weight: .black, design: .rounded))
                 .foregroundStyle(Color(red: 0.10, green: 0.10, blue: 0.10))
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
+                .padding(.vertical, height == nil ? 12 : 0)
+                .frame(minHeight: height ?? 52)
+                .frame(height: height)
                 .liquidGlassBackground(shape: Capsule(), cornerRadius: 26)
         }
         .buttonStyle(.plain)
         .disabled(isImporting)
         .accessibilityLabel("Import Lottie animation")
+        .accessibilityIdentifier("import-animation")
     }
 
     private func cycleEmptyGreeting() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.8)) {
             emptyGreetingIndex = (emptyGreetingIndex + 1) % emptyGreetings.count
         }
     }
@@ -950,6 +624,11 @@ struct ContentView: View {
             }
         }
         .background(emptyScreenBackground.ignoresSafeArea())
+        .alert("Profile", isPresented: $showingProfileInfo) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Profiles are coming soon. Your projects are stored on this device.")
+        }
         .alert("Error", isPresented: $showingAlert) {
             Button("OK") { }
             if canRecoverSavedProject {
@@ -980,7 +659,7 @@ struct ContentView: View {
         }
         .onAppear {
             session.setSceneActive(scenePhase == .active)
-            restoreLastProjectIfNeeded()
+            prepareLaunchIfNeeded()
         }
         .onChange(of: scenePhase) { _, phase in
             session.setSceneActive(phase == .active)
@@ -1075,23 +754,12 @@ struct ContentView: View {
     }
     
     // MARK: - Animation Loading
-    private func restoreLastProjectIfNeeded() {
-        guard !didAttemptRestore else { return }
-        didAttemptRestore = true
-        restoreTask = Task { @MainActor in
-            if persistenceEnabled {
-                do {
-                    if try await persistence.restore(document: document, session: session) {
-                        runtimeStatusMessage = "Restored saved project"
-                    }
-                } catch is CancellationError { return }
-                catch {
-                    canRecoverSavedProject = await persistence.canRecoverSavedProject()
-                    if Task.isCancelled { return }
-                    alertMessage = "Could not restore the saved project. It has not been changed.\n\n\(error.localizedDescription)"
-                    showingAlert = true
-                }
-            }
+    private func prepareLaunchIfNeeded() {
+        guard !didPrepareLaunch else { return }
+        didPrepareLaunch = true
+        // A normal launch always starts at Home. Keep the saved project intact;
+        // saving a project does not authorize automatically opening it.
+        launchTask = Task { @MainActor in
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("-loadSampleOnLaunch"), !hasAnimation,
                !Task.isCancelled { loadFirstSampleAnimation() }
@@ -1132,7 +800,7 @@ struct ContentView: View {
     }
 
     private func loadAnimation(data: Data, sourceURL: URL) async throws {
-        restoreTask?.cancel()
+        launchTask?.cancel()
         try LottieImportService.validate(data)
 
         let candidate = AnimationDocument()
@@ -2095,7 +1763,7 @@ private extension PlayerLoopMode {
     }
 }
 
-private struct CheckerboardView: View {
+struct PreviewCheckerboardView: View {
     let squareSize: CGFloat
 
     var body: some View {

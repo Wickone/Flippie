@@ -300,20 +300,23 @@ final class ProjectPersistenceTests: XCTestCase {
         XCTAssertEqual(restored.edits.playbackSpeed, 1)
     }
 
-    func testContentViewRestoresSavedProjectOnAppearance() async throws {
+    func testContentViewStartsAtLandingWithoutOpeningOrChangingSavedProject() async throws {
         let directory = try folder(); defer { try? FileManager.default.removeItem(at: directory) }
         let location = directory.appendingPathComponent("Last.flippie")
         try await ProjectStore().save(project(), at: location)
+        let manifest = location.appendingPathComponent("project.json")
+        let savedBytes = try Data(contentsOf: manifest)
         let doc = AnimationDocument(); let session = PlaybackSession()
         let controller = UIHostingController(rootView: ContentView(document: doc, session: session,
             persistence: ProjectPersistenceCoordinator(url: location)))
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
         window.rootViewController = controller; window.isHidden = false
         defer { session.close(); window.isHidden = true; window.rootViewController = nil }
-        let deadline = ContinuousClock.now.advanced(by: .seconds(3))
-        while !session.hasAnimation && ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
-        XCTAssertTrue(session.hasAnimation)
-        XCTAssertTrue(doc.isLoaded)
+        try await Task.sleep(for: .milliseconds(800))
+        XCTAssertFalse(session.hasAnimation, "Startup must not automatically open the saved project")
+        XCTAssertFalse(doc.isLoaded)
+        XCTAssertEqual(try Data(contentsOf: manifest), savedBytes, "Showing the landing screen must preserve the saved project")
+        _ = try await ProjectStore().load(from: location)
     }
 
     func testDamagedProjectCanBeQuarantinedBeforeSavingNewImport() async throws {
