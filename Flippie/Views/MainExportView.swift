@@ -9,13 +9,13 @@ struct MainExportView: View {
     @State private var exportSpeed = 1.0
     @State private var exportWidth = 512
     @State private var exportHeight = 512
-    @State private var gifQuality = 0.9
     @State private var transparent = true
     @State private var exportBackground = Color.white
     @State private var previewPlayer: VersionedLottiePlayerView?
 
     @State private var exportTask: Task<Void, Never>?
     @State private var exportProgress = 0.0
+    @State private var exportPhase: AnimationExportPhase = .preparing
     @State private var isExporting = false
     @State private var exportURL: URL?
     @State private var showingShareSheet = false
@@ -26,18 +26,23 @@ struct MainExportView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    formatSection
+                    Group {
+                        formatSection
 
-                    if exportFormat != .json {
-                        previewSection
-                        sizeSection
-                        frameRateSection
-                        playbackSection
-                        appearanceSection
-                        if exportFormat == .gif {
-                            qualitySection
+                        if exportFormat != .json {
+                            previewSection
+                            sizeSection
+                            frameRateSection
+                            playbackSection
+                            appearanceSection
+                        }
+                        if let validationMessage {
+                            Text(validationMessage)
+                                .font(.caption)
+                                .foregroundStyle(.red)
                         }
                     }
+                    .disabled(isExporting)
 
                     if isExporting {
                         progressSection
@@ -61,7 +66,7 @@ struct MainExportView: View {
                 }
             }
         }
-        .sheet(isPresented: $showingShareSheet) {
+        .sheet(isPresented: $showingShareSheet, onDismiss: clearExport) {
             if let exportURL {
                 ShareSheet(items: [exportURL])
                     .presentationDetents([.medium, .large])
@@ -79,6 +84,7 @@ struct MainExportView: View {
             reloadPreview()
         }
         .onChange(of: exportFormat) { _, newFormat in
+            if newFormat == .gif && framesPerSecond > 50 { framesPerSecond = 30 }
             if !newFormat.supportsTransparency {
                 transparent = false
             }
@@ -90,6 +96,7 @@ struct MainExportView: View {
         .onDisappear {
             exportTask?.cancel()
             previewPlayer?.stop()
+            if !showingShareSheet { clearExport() }
         }
     }
 
@@ -162,15 +169,14 @@ struct MainExportView: View {
     private var frameRateSection: some View {
         settingsCard(title: "Frame Rate") {
             Picker("FPS", selection: $framesPerSecond) {
-                ForEach([15, 24, 30, 60], id: \.self) { fps in
+                ForEach(exportFormat == .gif ? [15, 24, 30] : [15, 24, 30, 60], id: \.self) { fps in
                     Text("\(fps)").tag(fps)
                 }
             }
             .pickerStyle(.segmented)
 
-            if let duration = document.metadata?.duration {
-                let outputDuration = exportDuration(from: duration)
-                Text("\(frameCount(duration: outputDuration)) frames · \(outputDuration.formatted(.number.precision(.fractionLength(2)))) seconds")
+            if document.metadata != nil {
+                Text("\(makePlan().frameCount) frames · \(makePlan().encodedDuration.formatted(.number.precision(.fractionLength(2)))) seconds")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -215,19 +221,8 @@ struct MainExportView: View {
         }
     }
 
-    private var qualitySection: some View {
-        settingsCard(title: "GIF Quality") {
-            HStack {
-                Slider(value: $gifQuality, in: 0.3...1, step: 0.1)
-                Text("\(Int((gifQuality * 100).rounded()))%")
-                    .monospacedDigit()
-                    .frame(width: 44, alignment: .trailing)
-            }
-        }
-    }
-
     private var progressSection: some View {
-        settingsCard(title: "Exporting \(exportFormat.rawValue)") {
+        settingsCard(title: "\(exportPhase.rawValue) \(exportFormat.rawValue)") {
             ProgressView(value: exportProgress)
             Text("\(Int((exportProgress * 100).rounded()))%")
                 .font(.caption.monospacedDigit())
@@ -260,9 +255,9 @@ struct MainExportView: View {
     private var formatDescription: String {
         switch exportFormat {
         case .json:
-            "Exports the edited Lottie JSON without rasterizing it."
+            "Self-contained JSON: edited vectors are preserved and images are embedded. No separate image folder is needed. External fonts must be outlined."
         case .gif:
-            "Frames are rendered and written directly to the GIF without keeping the full animation in memory."
+            "Automatic GIF palette, up to 256 colors per frame. Transparency is on/off; soft alpha edges require MOV. Delays are rounded cumulatively to hundredths of a second."
         case .mp4:
             "H.264 video with broad compatibility and an opaque background."
         case .mov:
@@ -327,17 +322,15 @@ struct MainExportView: View {
         exportHeight = max(1, Int((Double(metadata.height) * scale).rounded()))
     }
 
-    private func frameCount(duration: Double) -> Int {
-        max(1, Int(ceil(duration * Double(framesPerSecond))))
-    }
-
     private var canStartExport: Bool {
         document.isLoaded
             && !isExporting
-            && exportWidth > 0
-            && exportHeight > 0
-            && framesPerSecond > 0
-            && exportSpeed > 0
+            && validationMessage == nil
+    }
+
+    private var validationMessage: String? {
+        do { try makePlan().validate(); return nil }
+        catch { return error.localizedDescription }
     }
 
     private func sanitizedSpeed(_ speed: Double) -> Double {
@@ -356,7 +349,7 @@ struct MainExportView: View {
             duration: document.metadata.map { exportDuration(from: $0.duration) } ?? 0,
             transparent: exportFormat == .json ? false : transparent,
             backgroundColor: RGBAColor(exportBackground),
-            gifQuality: gifQuality
+            gifQuality: 1
         )
     }
 
@@ -404,9 +397,11 @@ struct MainExportView: View {
     }
 
     private func startExport() {
+        clearExport()
         exportTask?.cancel()
         isExporting = true
         exportProgress = 0
+        exportPhase = .preparing
 
         exportTask = Task { @MainActor in
             defer {
@@ -422,10 +417,12 @@ struct MainExportView: View {
                     assetBaseURL: document.sourceURL?.deletingLastPathComponent(),
                     preferredFileName: document.displayName
                 )
-                let url = try await AnimationExporter().export(request: request) {
+                let url = try await AnimationExporter().export(request: request, phase: {
+                    exportPhase = $0
+                }) {
                     exportProgress = $0
                 }
-                try Task.checkCancellation()
+                if Task.isCancelled { ExportFileStore.remove(url); throw CancellationError() }
                 exportURL = url
                 showingShareSheet = true
             } catch is CancellationError {
@@ -439,6 +436,11 @@ struct MainExportView: View {
 
     private func cancelExport() {
         exportTask?.cancel()
+    }
+
+    private func clearExport() {
+        if let exportURL { ExportFileStore.remove(exportURL) }
+        exportURL = nil
     }
 }
 

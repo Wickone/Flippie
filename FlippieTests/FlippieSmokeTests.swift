@@ -725,47 +725,9 @@ final class FlippieSmokeTests: XCTestCase {
         )
     }
 
-    func testTransparentMOVExporterUsesHEVCWithAlpha() async throws {
-        let request = AnimationExportRequest(
-            animationData: try makeEmptyAnimationData(),
-            runtime: .embedded,
-            plan: AnimationExportPlan(
-                format: .mov,
-                size: CGSize(width: 16, height: 16),
-                framesPerSecond: 10,
-                duration: 0.1,
-                transparent: true,
-                backgroundColor: RGBAColor(red: 1, green: 1, blue: 1),
-                gifQuality: 1
-            )
-        )
-
-        do {
-            let url = try await AnimationExporter().export(request: request) { _ in }
-            defer { try? FileManager.default.removeItem(at: url) }
-
-            let asset = AVURLAsset(url: url)
-            let tracks = try await asset.loadTracks(withMediaType: .video)
-            let track = try XCTUnwrap(tracks.first)
-            let descriptions = try await track.load(.formatDescriptions)
-            let description = try XCTUnwrap(descriptions.first)
-
-            XCTAssertEqual(url.pathExtension, "mov")
-            XCTAssertEqual(
-                CMFormatDescriptionGetMediaSubType(description),
-                kCMVideoCodecType_HEVCWithAlpha
-            )
-        } catch AnimationExportError.alphaEncodingUnavailable {
-            // Simulator configurations without an alpha-capable HEVC encoder
-            // must fail explicitly instead of returning an opaque video.
-        }
-    }
-
     func testExportCancellationRemovesPartialFile() async throws {
-        let documentsDirectory = FileManager.default.urls(
-            for: .documentDirectory,
-            in: .userDomainMask
-        )[0]
+        try ExportFileStore.prepare()
+        let documentsDirectory = ExportFileStore.directory
         let filesBefore = try Set(
             FileManager.default.contentsOfDirectory(
                 at: documentsDirectory,

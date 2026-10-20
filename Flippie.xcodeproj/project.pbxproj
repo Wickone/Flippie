@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8E0000000000000000000001 /* ExportFidelityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0000000000000000000002; };
 		8D0000000000000000000001 /* AnimationTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0000000000000000000002; };
 		8D0000000000000000000003 /* PlaybackTimelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0000000000000000000004; };
 		8D0000000000000000000005 /* WebRendererTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0000000000000000000006; };
@@ -61,6 +62,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		8E0000000000000000000002 /* ExportFidelityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportFidelityTests.swift; sourceTree = "<group>"; };
 		8D0000000000000000000002 /* AnimationTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnimationTimeline.swift; sourceTree = "<group>"; };
 		8D0000000000000000000004 /* PlaybackTimelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackTimelineTests.swift; sourceTree = "<group>"; };
 		8D0000000000000000000006 /* WebRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebRendererTests.swift; sourceTree = "<group>"; };
@@ -216,6 +218,7 @@
 			children = (
 				8C0000000000000000000006 /* PlaybackSessionTests.swift */,
 				8D0000000000000000000004 /* PlaybackTimelineTests.swift */,
+				8E0000000000000000000002 /* ExportFidelityTests.swift */,
 				8D0000000000000000000006 /* WebRendererTests.swift */,
 				2B3C4D5E6F7G8H9I0J1K2L03 /* FlippieSmokeTests.swift */,
 				8B0000000000000000000002 /* LottieImportTests.swift */,
@@ -403,6 +406,7 @@
 				8B0000000000000000000001 /* LottieImportTests.swift in Sources */,
 				8C0000000000000000000005 /* PlaybackSessionTests.swift in Sources */,
 				8D0000000000000000000003 /* PlaybackTimelineTests.swift in Sources */,
+				8E0000000000000000000001 /* ExportFidelityTests.swift in Sources */,
 				8D0000000000000000000005 /* WebRendererTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
